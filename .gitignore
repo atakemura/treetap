@@ -126,3 +126,6 @@ dmypy.json
 
 # Dataset directory
 /datasets
+
+# Other people's files including binary
+/contrib
