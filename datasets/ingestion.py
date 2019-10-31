@@ -58,7 +58,7 @@ def autism_parser():
         df.loc[:, c] = df.loc[:, c].str.decode('utf-8')
     df.columns = [x.lower() for x in df.columns]  # lower case column names
     # missing data
-    df.age.fillna(df.age.mode(), inplace=True)
+    df.age.fillna(df.age.mode()[0], inplace=True)
     # label normalization
     df.rename({'class/asd': 'label'}, axis=1, inplace=True)
     df['label'].replace({'YES': 1, 'NO': 0}, inplace=True)
@@ -224,7 +224,7 @@ def kidney_parser():
         df.loc[:, c] = df.loc[:, c].str.decode('utf-8')
     # missing data
     for c in df.select_dtypes(include=np.number).isnull().any().index:
-        df[c].fillna(df[c].mode(), inplace=True)
+        df[c].fillna(df[c].mode()[0], inplace=True)
     # label normalization
     df.rename({'class': 'label'}, axis=1, inplace=True)
     df['label'].replace({'nockd': 0, 'ckd': 1}, inplace=True)
