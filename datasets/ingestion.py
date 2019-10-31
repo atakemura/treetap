@@ -48,6 +48,12 @@ def check_dtypes(schema, df):
             assert ptypes.is_numeric_dtype(df[col])
         except AssertionError:
             raise ValueError('Expected numeric but received {} for column {}'.format(df[col].dtype, col))
+    # check label (only supports binary classification)
+    try:
+        assert df[schema['label_column']].nunique() == 2 and set(df[schema['label_column']].unique()) == {0, 1}
+    except AssertionError:
+        raise ValueError('Expected label to be {{0, 1}} but received {}'
+                         .format(set(df[schema['label_column']].unique())))
 
 
 def autism_parser():
@@ -119,14 +125,14 @@ def cars_parser():
                      names=['buying', 'maint', 'doors', 'persons', 'lug_boot', 'safety', 'evaluation'])
     # label normalization
     df.rename({'evaluation': 'label'}, axis=1, inplace=True)
-    df['label'].replace({'unacc': 0, 'acc': 1, 'good': 1, 'v-good': 1}, inplace=True)
+    df['label'].replace({'unacc': 0, 'acc': 1, 'good': 1, 'vgood': 1}, inplace=True)
     # schema
     schema = {
         'id_col': '',
         'categorical_columns': ['buying', 'maint', 'doors', 'persons', 'lug_boot', 'safety'],
         'numerical_columns': [],
         'label_column': 'label',
-        'notes': 'labels= unacc=0, acc, good, v-good=1'
+        'notes': 'labels= unacc=0, acc, good, vgood=1'
     }
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'cars')
@@ -196,7 +202,7 @@ def ionosphere_parser():
                      names=['a{}'.format(n) for n in range(1, 36)])
     # label normalization
     df.rename({'a35': 'label'}, axis=1, inplace=True)
-    df['label'].replace({'good': 1, 'bad': 0}, inplace=True)
+    df['label'].replace({'g': 1, 'b': 0}, inplace=True)
     # schema
     schema = {
         'id_col': '',
@@ -227,7 +233,7 @@ def kidney_parser():
         df[c].fillna(df[c].mode()[0], inplace=True)
     # label normalization
     df.rename({'class': 'label'}, axis=1, inplace=True)
-    df['label'].replace({'nockd': 0, 'ckd': 1}, inplace=True)
+    df['label'].replace({'notckd': 0, 'ckd': 1}, inplace=True)
     # schema
     schema = {
         'id_col': '',
