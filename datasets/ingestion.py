@@ -54,6 +54,14 @@ def check_dtypes(schema, df):
     except AssertionError:
         raise ValueError('Expected label to be {{0, 1}} but received {}'
                          .format(set(df[schema['label_column']].unique())))
+    # check all columns except label columns are either in numeric or categorical
+    df_cols = set(df.columns) - {schema['label_column']} - {schema['id_col']}
+    diff_cols = df_cols - set(schema['categorical_columns']) - set(schema['numerical_columns'])
+    try:
+        assert diff_cols == set()
+    except AssertionError:
+        raise ValueError('Expected all columns to be in either categorical or numerical columns.'
+                         ' But {} is/are not.'.format(diff_cols))
 
 
 def autism_parser():
@@ -75,7 +83,7 @@ def autism_parser():
                                 'a6_score', 'a7_score', 'a8_score', 'a9_score', 'a10_score',
                                 'gender', 'ethnicity', 'jaundice', 'autism', 'country_of_res',
                                 'used_app_before', 'age_desc', 'relation'],
-        'numerical_columns': ['age'],
+        'numerical_columns': ['age', 'result'],
         'label_column': 'label',
         'notes': 'labels=YES=1/NO=0. Deleted quotation characters from @attributes, '
                  'otherwise scipy.loadarff throws an error.'
@@ -182,7 +190,7 @@ def heart_parser():
         'id_col': '',
         'categorical_columns': ['sex', 'chest_pain_type', 'fasting_blood_sugar',
                                 'resting_electrocardiographic_results',
-                                'exercise_induced_angina', 'slope_peak', 'number_of_major_vessels'],
+                                'exercise_induced_angina', 'slope_peak', 'number_of_major_vessels', 'thal'],
         'numerical_columns': ['age', 'resting_blood_pressure', 'serum_cholestoral',
                               'maximum_heart_rate', 'oldpeak'],
         'label_column': 'label',
@@ -237,7 +245,7 @@ def kidney_parser():
     # schema
     schema = {
         'id_col': '',
-        'categorical_columns': ['sg', 'al', 'su', 'pcc', 'ba', 'htn', 'dm', 'cad', 'appet', 'pe', 'ane'],
+        'categorical_columns': ['sg', 'al', 'su', 'rbc', 'pc', 'pcc', 'ba', 'htn', 'dm', 'cad', 'appet', 'pe', 'ane'],
         'numerical_columns': ['age', 'bp', 'bgr', 'bu', 'sc', 'sod', 'pot', 'hemo', 'pcv', 'wbcc', 'rbcc'],
         'label_column': 'label',
         'notes': 'labels= ckd=1/notckd=0. Error at line ~300, there is a double comma making this line 26 elements and'
