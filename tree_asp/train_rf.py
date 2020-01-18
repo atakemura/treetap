@@ -23,9 +23,16 @@ if __name__ == '__main__':
     a.fit(X, y, model=rf, feature_names=iris_feat)
 
     ret_str = a.transform(X, y)
-    print(ret_str)
+    # print(ret_str)
 
     skl = SkylineSolver()
     skl.solve(ret_str)
-    print(skl.models)
+    # print(skl.models)
 
+    for ans_idx, model in enumerate(skl.models):
+        print(ans_idx)
+        for m in model:
+            # this filter may be unnecessary, depending on the #show setting
+            if m.name == 'selected':
+                selected_ptn = [p for p in a.patterns_ if p.idx == m.arguments[0].number][0]
+                print(selected_ptn)

@@ -9,6 +9,8 @@ from sklearn.utils.validation import check_is_fitted
 from functools import reduce
 from operator import and_
 
+from tree_asp.pattern import Pattern, Item
+
 LT_PATTERN = ' < '
 LE_PATTERN = ' <= '
 GT_PATTERN = ' > '
@@ -209,6 +211,10 @@ class RFRuleExtractor:
         item_list = []
         print_dicts = []
 
+        # pattern and item instances
+        ptn_obj_list = []
+        itm_obj_list = []
+
         for t_idx, t in rules.items():
             for node_idx, node_rule in t.items():
                 # pattern
@@ -233,6 +239,7 @@ class RFRuleExtractor:
                         else:
                             item_list.append(k)
                             itm_idx = len(item_list) - 1
+                            itm_obj_list.append(Item(itm_idx, k))
                         _list_items.append((ptn_idx, itm_idx))
                 if self.verbose:
                     print('pattern_id {} class={}: {}'.format(ptn_idx, node_rule['mode_class'], ptn))
@@ -251,6 +258,16 @@ class RFRuleExtractor:
                     'mode_class': node_rule['mode_class']
                 }
                 print_dicts.append(prn)
+                ptn_obj_list.append(Pattern(idx=ptn_idx,
+                                            pattern_str=ptn,
+                                            items=[Item(itm_idx_k, item_list[itm_idx_k])
+                                                   for (_, itm_idx_k) in _list_items],
+                                            support=node_rule['frequency'],
+                                            size=len(_list_items),
+                                            error_rate=int(round(node_rule['error_rate']*100)),
+                                            mode_class=node_rule['mode_class']))
+        self.patterns_ = ptn_obj_list
+        self.items_ = itm_obj_list
         return print_dicts
 
     def asp_str_from_dicts(self, list_dicts: list):
