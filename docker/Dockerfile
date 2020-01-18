@@ -10,8 +10,14 @@ RUN apt update && \
     pip install problog && \
     conda install -c potassco clingo && \
     conda install -c conda-forge lightgbm && \
+    conda install -c conda-forge xgboost && \
     conda install -c conda-forge shap
 
+#    && \
+#    conda install -c r r &&
+#    R -e 'install.packages(c("inTrees", "randomForest", "nodeHarvest"), repos="https://cran.ism.ac.jp")'
+#
+#
 #    # clingocon build dependencies
 #    apt install -y build-essential re2c bison && \
 #    ln -s /usr/include/locale.h /usr/include/xlocale.h && \
