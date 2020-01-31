@@ -60,11 +60,11 @@ if __name__ == '__main__':
 
             ret_str = a.transform(X, y)
 
-            n_class = y.max()
+            n_class = y.max() + 1
 
-            # slv = SkylineSolver(n_class=n_class)
+            slv = SkylineSolver(n_class=n_class)
             # slv = MaximalSolver(n_class=n_class)
-            slv = ClosedSolver(n_class=n_class)
+            # slv = ClosedSolver(n_class=n_class)
             slv.solve(ret_str)
 
             print(load_f)

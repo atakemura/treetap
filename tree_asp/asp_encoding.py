@@ -46,8 +46,8 @@ dominated :- valid(J), geq_in_size_and_greater_in_frequency(J), same_class(J).
 % cannot be dominated
 :- dominated.
 
-#maximize{ S@2 : support(I,S), selected(I) }.
-#minimize{ E@1 : error_rate(I,E), selected(I) }.
+%#maximize{ S@2 : support(I,S), selected(I) }.
+%#minimize{ E@1 : error_rate(I,E), selected(I) }.
 
 #show selected/1.
         """
