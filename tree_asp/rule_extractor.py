@@ -25,6 +25,8 @@ class RFRuleExtractor:
                               'frequency', 'frequency_am', 'mode_class', 'value']
         self.asp_fact_str = None
         self.fitted_ = False
+        self.patterns_ = None
+        self.items_ = None
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         # validate the input model
