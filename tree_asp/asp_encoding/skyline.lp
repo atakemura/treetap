@@ -1,9 +1,5 @@
-% let's just assume binary classification for now
-% class(0). class(1).
-% class(1). class(2).
-% class(0). class(2).
-% class(1).
-class(0..2).
+% class(0..2).
+% you need to add class(0..K). by yourself.
 
 % we would like to pick 1 pattern for each mode_class
 1 { selected(I) :  mode_class(I, K), valid(I) } :- class(K).
