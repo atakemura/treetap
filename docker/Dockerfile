@@ -9,9 +9,13 @@ RUN apt update && \
     pip install --upgrade pip && \
     pip install problog && \
     conda install -c potassco clingo && \
+    conda install -c potassco asprin && \
     conda install -c conda-forge lightgbm && \
     conda install -c conda-forge xgboost && \
     conda install -c conda-forge shap
+
+# until this is merged https://github.com/potassco/asprin/pull/3
+RUN sed -i -e 's/async/async_/g' /opt/conda/lib/python3.7/site-packages/asprin/src/utils/clingo_signal_handler.py
 
 #    && \
 #    conda install -c r r &&
