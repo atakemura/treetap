@@ -9,7 +9,7 @@ from sklearn.utils.validation import check_is_fitted
 from functools import reduce
 from operator import and_
 
-from tree_asp.pattern import Pattern, Item
+from pattern import Pattern, Item
 
 LT_PATTERN = ' < '
 LE_PATTERN = ' <= '

@@ -69,6 +69,7 @@ if __name__ == '__main__':
     answers, clasp_info = generate_answers(o.stdout.decode())
 
     print('parsing completed')
+    print(clasp_info.stats)
 
     for ans_set in answers:
         if not ans_set.is_optimal:
