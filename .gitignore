@@ -133,3 +133,6 @@ dmypy.json
 
 # Ignore notebooks
 /notebooks
+
+# Ignore .idea
+/.idea
