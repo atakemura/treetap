@@ -1,24 +1,21 @@
-import pandas as pd
+import json
 import lightgbm as lgb
+import os
+import pandas as pd
+import subprocess
 
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_iris, load_breast_cancer, load_wine
 from sklearn.model_selection import train_test_split
-
-from rule_extractor import LGBMTree, LGBMRuleExtractor
-
-import subprocess
-import os
 from itertools import product
-import json
 from pathlib import Path
 from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
 
+from rule_extractor import LGBMRuleExtractor
 from clasp_parser import generate_answers
-from answers import AnswerSet, ClaspInfo
-from pattern import Pattern, Item
+from pattern import Pattern
+
 
 
 def run_experiment(dataset_name, n_estimators, max_depth, encoding):
