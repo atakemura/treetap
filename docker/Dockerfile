@@ -8,6 +8,7 @@ RUN apt update && \
     conda install pip && \
     pip install --upgrade pip && \
     pip install problog && \
+    pip install category_encoders && \
     conda install -c potassco clingo && \
     conda install -c potassco asprin && \
     conda install -c conda-forge lightgbm && \
