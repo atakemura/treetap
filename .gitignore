@@ -139,4 +139,4 @@ dmypy.json
 /.idea/
 
 # Ignore tmp
-.tmp/
+/tree_asp/tmp/
