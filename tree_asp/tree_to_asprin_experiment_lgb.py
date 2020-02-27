@@ -11,6 +11,7 @@ import subprocess
 import os
 from itertools import product
 import json
+from pathlib import Path
 from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
@@ -20,19 +21,14 @@ from answers import AnswerSet, ClaspInfo
 from pattern import Pattern, Item
 
 
-def run_experiment(load_data_method, n_estimators, max_depth, encoding):
-    print(load_data_method.__name__, n_estimators, max_depth, encoding)
+def run_experiment(dataset_name, n_estimators, max_depth, encoding):
+    print(dataset_name, n_estimators, max_depth, encoding)
     start = timer()
 
     SEED = 42
 
-    data_obj = load_data_method()
-    feat = data_obj['feature_names']
-    data = data_obj['data']
-    target = data_obj['target']
-
-    df = pd.DataFrame(data, columns=feat).assign(target=target)
-    X, y = df[feat], df['target']
+    X, y = load_data(dataset_name)
+    feat = X.columns
 
     lgb_start = timer()
     # holdout set
@@ -49,11 +45,9 @@ def run_experiment(load_data_method, n_estimators, max_depth, encoding):
     # using native api
     lgb_train = lgb.Dataset(data=x_tr,
                             label=y_tr,
-                            #                         categorical_feature=schema['categorical_columns']
                             )
     lgb_valid = lgb.Dataset(data=x_val,
                             label=y_val,
-                            #                         categorical_feature=schema['categorical_columns'],
                             reference=lgb_train)
     # lgb_test  = lgb.Dataset(data=x_test,
     #                         categorical_feature=schema['categorical_columns'],
@@ -114,7 +108,7 @@ def run_experiment(load_data_method, n_estimators, max_depth, encoding):
     if asprin_completed:
         out_dict = {
             # experiment
-            'dataset': load_data_method.__name__,
+            'dataset': dataset_name,
             'best_iteration': model.best_iteration,
             'n_estimators': model.num_trees(),
             'max_depth': max_depth,
@@ -138,7 +132,7 @@ def run_experiment(load_data_method, n_estimators, max_depth, encoding):
     else:
         out_dict = {
             # experiment
-            'dataset': load_data_method.__name__,
+            'dataset': dataset_name,
             'best_iteration': model.best_iteration,
             'n_estimators': model.num_trees(),
             'max_depth': max_depth,
@@ -194,9 +188,47 @@ def run_experiment(load_data_method, n_estimators, max_depth, encoding):
             out_log_quali.write(json.dumps(out_quali)+'\n')
 
 
+def load_data(dataset_name):
+    # there is no categorical feature in these sklearn datasets.
+    sklearn_data = {'iris': load_iris,
+                    'breast_sk': load_breast_cancer,
+                    'wine': load_wine}
+    # the following contains a mix of categorical and numerical features.
+    datasets = ['autism', 'breast', 'cars',
+                'credit_australia', 'heart', 'ionosphere',
+                'kidney', 'krvskp', 'voting']
+    if dataset_name in sklearn_data.keys():
+        load_data_method = sklearn_data[dataset_name]
+        data_obj = load_data_method()
+        feat = data_obj['feature_names']
+        data = data_obj['data']
+        target = data_obj['target']
+
+        df = pd.DataFrame(data, columns=feat).assign(target=target)
+        X, y = df[feat], df['target']
+        dataset = (X, y)
+    elif dataset_name in datasets:
+        dataset_dir = Path('../datasets/datasets/') / dataset_name
+
+        raw = pd.read_csv(Path(dataset_dir / dataset_name).with_suffix('.csv'))
+        with open(dataset_dir / 'schema.json', 'r') as infile:
+            schema = json.load(infile)
+        for c in schema['categorical_columns']:
+            raw.loc[:, c] = raw.loc[:, c].astype('category')
+        raw_x = raw[[c for c in raw.columns if c != schema['label_column']]].copy()
+        if schema['id_col'] != "":
+            raw_x.drop(schema['id_col'], axis=1, inplace=True)
+        raw_y = raw[schema['label_column']]
+        dataset = (raw_x, raw_y)
+    else:
+        raise ValueError('unrecognized dataset name: {}'.format(dataset_name))
+    return dataset
+
+
 if __name__ == '__main__':
     start_time = timer()
-    data = [load_iris, load_breast_cancer, load_wine]
+    # data = [load_iris, load_breast_cancer, load_wine]
+    data = ['breast', 'breast_sk', 'wine', 'autism']
     # n_estimators = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
     n_estimators = [200]  # max boosting rounds if early stopping fails
     max_depths = [4, 5, 6, 7, 8]
