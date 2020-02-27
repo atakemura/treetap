@@ -4,11 +4,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_iris, load_breast_cancer, load_wine
 
 from rule_extractor import RFRuleExtractor
+from category_encoders.one_hot import OneHotEncoder
 
 import subprocess
 import os
 from itertools import product
 import json
+from pathlib import Path
 from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
@@ -18,20 +20,21 @@ from answers import AnswerSet, ClaspInfo
 from pattern import Pattern, Item
 
 
-def run_experiment(load_data_method, n_estimators, max_depth, encoding):
-    print(load_data_method.__name__, n_estimators, max_depth, encoding)
+def run_experiment(dataset_name, n_estimators, max_depth, encoding):
+    print(dataset_name, n_estimators, max_depth, encoding)
     start = timer()
 
-    data_obj = load_data_method()
-    feat = data_obj['feature_names']
-    data = data_obj['data']
-    target = data_obj['target']
+    SEED = 42
 
-    df = pd.DataFrame(data, columns=feat).assign(target=target)
-    X, y = df[feat], df['target']
+    X, y = load_data(dataset_name)
+    categorical_features = list(X.columns[X.dtypes == 'category'])
+    if len(categorical_features) > 0:
+        oh = OneHotEncoder(cols=categorical_features, use_cat_names=True)
+        X = oh.fit_transform(X)
+    feat = X.columns
 
     rf_start = timer()
-    rf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    rf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=SEED)
     rf.fit(X, y)
     rf_end = timer()
 
@@ -83,7 +86,7 @@ def run_experiment(load_data_method, n_estimators, max_depth, encoding):
     if asprin_completed:
         out_dict = {
             # experiment
-            'dataset': load_data_method.__name__,
+            'dataset': dataset_name,
             'n_estimators': n_estimators,
             'max_depth': max_depth,
             'encoding': encoding,
@@ -106,7 +109,7 @@ def run_experiment(load_data_method, n_estimators, max_depth, encoding):
     else:
         out_dict = {
             # experiment
-            'dataset': load_data_method.__name__,
+            'dataset': dataset_name,
             'n_estimators': n_estimators,
             'max_depth': max_depth,
             'encoding': encoding,
@@ -161,15 +164,57 @@ def run_experiment(load_data_method, n_estimators, max_depth, encoding):
             out_log_quali.write(json.dumps(out_quali)+'\n')
 
 
+def load_data(dataset_name):
+    # there is no categorical feature in these sklearn datasets.
+    sklearn_data = {'iris': load_iris,
+                    'breast_sk': load_breast_cancer,
+                    'wine': load_wine}
+    # the following contains a mix of categorical and numerical features.
+    datasets = ['autism', 'breast', 'cars',
+                'credit_australia', 'heart', 'ionosphere',
+                'kidney', 'krvskp', 'voting']
+    if dataset_name in sklearn_data.keys():
+        load_data_method = sklearn_data[dataset_name]
+        data_obj = load_data_method()
+        feat = data_obj['feature_names']
+        data = data_obj['data']
+        target = data_obj['target']
+
+        df = pd.DataFrame(data, columns=feat).assign(target=target)
+        X, y = df[feat], df['target']
+        dataset = (X, y)
+    elif dataset_name in datasets:
+        dataset_dir = Path('../datasets/datasets/') / dataset_name
+
+        raw = pd.read_csv(Path(dataset_dir / dataset_name).with_suffix('.csv'))
+        with open(dataset_dir / 'schema.json', 'r') as infile:
+            schema = json.load(infile)
+        for c in schema['categorical_columns']:
+            raw.loc[:, c] = raw.loc[:, c].astype('category')
+        raw_x = raw[[c for c in raw.columns if c != schema['label_column']]].copy()
+        if schema['id_col'] != "":
+            raw_x.drop(schema['id_col'], axis=1, inplace=True)
+        raw_y = raw[schema['label_column']]
+        dataset = (raw_x, raw_y)
+    else:
+        raise ValueError('unrecognized dataset name: {}'.format(dataset_name))
+    return dataset
+
+
 if __name__ == '__main__':
     start_time = timer()
-    data = [load_iris, load_breast_cancer, load_wine]
-    n_estimators = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
-    max_depths = [3, 4, 5, 6, 7, 8]
+    # data = ['breast', 'breast_sk', 'wine', 'autism']
+    data = ['breast_sk', 'iris', 'wine',
+            'autism', 'breast', 'cars', 'credit_australia',
+            'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']
+    # n_estimators = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    n_estimators = [10]
+    # max_depths = [3, 4, 5, 6, 7, 8]
+    max_depths = [5]
     # n_estimators = [9, 10, 11]
     # max_depths = [5, 6, 7]
-    encodings = ['skyline', 'maximal', 'closed']
-    # encodings = ['maximal']
+    # encodings = ['skyline', 'maximal', 'closed']
+    encodings = ['skyline']
 
     combinations = product(data, n_estimators, max_depths, encodings)
     for cond_tuple in tqdm(combinations):
