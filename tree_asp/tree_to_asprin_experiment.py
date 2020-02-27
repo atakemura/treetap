@@ -41,7 +41,7 @@ def run_experiment(load_data_method, n_estimators, max_depth, encoding):
     res_str = rf_extractor.transform(X, y)
     ext_end = timer()
 
-    exp_dir = './tmp/experiment'
+    exp_dir = './tmp/experiment_rf'
 
     tmp_pattern_file = os.path.join(exp_dir, 'pattern_out.txt')
     tmp_class_file = os.path.join(exp_dir, 'n_class.lp')
@@ -68,7 +68,6 @@ def run_experiment(load_data_method, n_estimators, max_depth, encoding):
     except subprocess.TimeoutExpired:
         o = None
         asprin_completed = False
-    # TODO: you still need out_dict with rf stuff
     asprin_end = timer()
 
     if asprin_completed:
