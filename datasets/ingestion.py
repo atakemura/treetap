@@ -170,10 +170,10 @@ def credit_australia_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'credit_australia')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'credit.csv', header=True, index=False)
+    df.to_csv(out_dir / 'credit_australia.csv', header=True, index=False)
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: credit written to {}'.format(out_dir / 'credit.csv'))
+    print('dataset: credit written to {}'.format(out_dir / 'credit_australia.csv'))
 
 
 def heart_parser():
