@@ -16,6 +16,8 @@ LT_PATTERN = ' < '
 LE_PATTERN = ' <= '
 GT_PATTERN = ' > '
 GE_PATTERN = ' >= '
+EQ_PATTERN = ' == '
+NEQ_PATTERN = ' != '
 
 
 class RFRuleExtractor:
@@ -306,7 +308,8 @@ class LGBMTree:
         self.children_right = np.empty((2 * num_parents + 1), dtype=np.int32)
         self.children_default = np.empty((2 * num_parents + 1), dtype=np.int32)
         self.features = np.empty((2 * num_parents + 1), dtype=np.int32)
-        self.thresholds = np.empty((2 * num_parents + 1), dtype=np.float64)
+        # self.thresholds = np.empty((2 * num_parents + 1), dtype=np.float64)
+        self.thresholds = [np.nan] * (2 * num_parents + 1)
         self.values = [-2] * (2 * num_parents + 1)
         self.node_sample_weight = np.empty((2 * num_parents + 1), dtype=np.float64)
         visited, queue = [], [start]
@@ -455,6 +458,11 @@ class LGBMRuleExtractor:
                     # right-child handles >
                     else:
                         rule_str = '{} > {}'.format(feature_names[tree.features[node]], tree.thresholds[node])
+                elif tree.decision_type[node] == '==':
+                    if tree.children_left[node] == path[idx + 1]:
+                        rule_str = '{} == {}'.format(feature_names[tree.features[node]], tree.thresholds[node])
+                    else:
+                        rule_str = '{} != {}'.format(feature_names[tree.features[node]], tree.thresholds[node])
                 else:
                     raise ValueError('this decision type {} is not supported'.format(tree.decision_type[node]))
                 rule_dict[rule_str] = 1
@@ -495,6 +503,19 @@ class LGBMRuleExtractor:
                         elif GE_PATTERN in rule_key:
                             _rule_field, _rule_threshold = rule_key.rsplit(GE_PATTERN, 1)
                             _tmp_dfs.append(getattr(X[_rule_field], 'ge')(float(_rule_threshold)))
+                        elif EQ_PATTERN in rule_key:
+                            _rule_field, _rule_threshold = rule_key.rsplit(EQ_PATTERN, 1)
+                            inverse_map = dict(enumerate(X[_rule_field].cat.categories))
+                            # rule threshold in this case can be like '0||1||2'
+                            _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
+                            _tmp_dfs.append(getattr(X[_rule_field], 'isin')(_cat_th))
+                        elif NEQ_PATTERN in rule_key:
+                            _rule_field, _rule_threshold = rule_key.rsplit(NEQ_PATTERN, 1)
+                            inverse_map = dict(enumerate(X[_rule_field].cat.categories))
+                            # rule threshold in this case can be like '0||1||2'
+                            _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
+                            # note the bitwise complement ~
+                            _tmp_dfs.append(~ getattr(X[_rule_field], 'isin')(_cat_th))
                         else:
                             raise ValueError('No key found')
                 # reduce boolean mask
