@@ -5,6 +5,8 @@ import subprocess
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.datasets import load_iris, load_breast_cancer, load_wine
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from category_encoders.one_hot import OneHotEncoder
 from itertools import product
 from pathlib import Path
@@ -13,16 +15,12 @@ from timeit import default_timer as timer
 from copy import deepcopy
 
 from rule_extractor import DTRuleExtractor
+from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from pattern import Pattern
 
 
 def run_experiment(dataset_name, n_estimators, max_depth, encoding):
-    print(dataset_name, n_estimators, max_depth, encoding)
-    start = timer()
-
-    SEED = 42
-
     X, y = load_data(dataset_name)
     categorical_features = list(X.columns[X.dtypes == 'category'])
     if len(categorical_features) > 0:
@@ -30,15 +28,43 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
         X = oh.fit_transform(X)
     feat = X.columns
 
+    skf = StratifiedKFold(n_splits=5, shuffle=False, random_state=2020)
+    for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
+        run_one_round(dataset_name, n_estimators, max_depth, encoding,
+                      train_idx, valid_idx, X, y, feat, fold=f_idx)
+
+
+def run_one_round(dataset_name, n_estimators, max_depth, encoding,
+                  train_idx, valid_idx, X, y, feature_names, fold=0):
+    # run single round of model + asprin
+    # print fold into json
+    # calculate accuracy scores
+    print(dataset_name, n_estimators, max_depth, encoding, fold)
+    start = timer()
+
+    SEED = 42
+
+    x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+    x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
+
+    # multilabel case
+    metric_averaging = 'micro' if y_valid.nunique() > 2 else 'binary'
+
     dt_start = timer()
     dt = DecisionTreeClassifier(max_depth=max_depth, random_state=SEED)
-    dt.fit(X, y)
+    dt.fit(x_train, y_train)
     dt_end = timer()
+
+    dt_vanilla_pred = dt.predict(x_valid)
+    vanilla_metrics = {'accuracy':  accuracy_score(y_valid, dt_vanilla_pred),
+                       'precision': precision_score(y_valid, dt_vanilla_pred, average=metric_averaging),
+                       'recall':    recall_score(y_valid, dt_vanilla_pred, average=metric_averaging),
+                       'f1':        f1_score(y_valid, dt_vanilla_pred, average=metric_averaging)}
 
     ext_start = timer()
     dt_extractor = DTRuleExtractor()
-    dt_extractor.fit(X, y, model=dt, feature_names=feat)
-    res_str = dt_extractor.transform(X, y)
+    dt_extractor.fit(x_train, y_train, model=dt, feature_names=feature_names)
+    res_str = dt_extractor.transform(x_train, y_train)
     ext_end = timer()
 
     exp_dir = './tmp/experiment_dt'
@@ -50,7 +76,7 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
         outfile.write(res_str)
 
     with open(tmp_class_file, 'w', encoding='utf-8') as outfile:
-        outfile.write('class(0..{}).'.format(int(y.nunique() - 1)))
+        outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
 
     asprin_preference = './asp_encoding/asprin_preference.lp'
     asprin_skyline    = './asp_encoding/skyline.lp'
@@ -81,6 +107,23 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
     log_json_quali = os.path.join(exp_dir, 'output_quali.json')
 
     if asprin_completed:
+        rules = []
+        for ans_idx, ans_set in enumerate(answers):
+            if not ans_set.is_optimal:
+                continue
+            for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
+                pat_idx = ans[-1][0]
+                pat = dt_extractor.patterns_[pat_idx]  # type: Pattern
+                rules.append(pat)
+            break
+        rule_classifier = RuleClassifier(rules)
+        rule_classifier.fit(x_train, y_train)
+        rule_pred = rule_classifier.predict(x_valid)
+        rule_pred_metrics = {'accuracy': accuracy_score(y_valid, rule_pred),
+                             'precision': precision_score(y_valid, rule_pred, average=metric_averaging),
+                             'recall': recall_score(y_valid, rule_pred, average=metric_averaging),
+                             'f1': f1_score(y_valid, rule_pred, average=metric_averaging)}
+
         out_dict = {
             # experiment
             'dataset': dataset_name,
@@ -102,6 +145,10 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
             'py_dt_time': dt_end - dt_start,
             'py_ext_time': ext_end - ext_start,
             'py_asprin_time': asprin_end - asprin_start,
+            # metrics
+            'fold': fold,
+            'vanilla_metrics': vanilla_metrics,
+            'rule_metrics': rule_pred_metrics,
         }
     else:
         out_dict = {
@@ -125,6 +172,10 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
             'py_dt_time': dt_end - dt_start,
             'py_ext_time': ext_end - ext_start,
             'py_asprin_time': asprin_end - asprin_start,
+            # metrics
+            'fold': fold,
+            'vanilla_metrics': vanilla_metrics,
+            # 'rule_metrics': rule_pred_metrics,
         }
     with open(log_json, 'a', encoding='utf-8') as out_log_json:
         out_log_json.write(json.dumps(out_dict)+'\n')
@@ -154,7 +205,6 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
                 }
                 _tmp_rules.append(pat_dict)
             out_quali['rules'].append((ans_idx, _tmp_rules))
-
 
     if verbose:
         with open(log_json_quali, 'a', encoding='utf-8') as out_log_quali:
@@ -210,8 +260,8 @@ if __name__ == '__main__':
     max_depths = [5]
     # n_estimators = [9, 10, 11]
     # max_depths = [5, 6, 7]
-    # encodings = ['skyline', 'maximal', 'closed']
-    encodings = ['skyline']
+    encodings = ['skyline', 'maximal', 'closed']
+    # encodings = ['skyline']
 
     combinations = product(data, n_estimators, max_depths, encodings)
     for cond_tuple in tqdm(combinations):

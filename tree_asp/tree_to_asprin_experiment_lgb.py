@@ -2,10 +2,12 @@ import json
 import lightgbm as lgb
 import os
 import pandas as pd
+import numpy as np
 import subprocess
 
 from sklearn.datasets import load_iris, load_breast_cancer, load_wine
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from itertools import product
 from pathlib import Path
 from tqdm import tqdm
@@ -13,26 +15,38 @@ from timeit import default_timer as timer
 from copy import deepcopy
 
 from rule_extractor import LGBMRuleExtractor
+from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from pattern import Pattern
 
 
 
 def run_experiment(dataset_name, n_estimators, max_depth, encoding):
+    X, y = load_data(dataset_name)
+    categorical_features = list(X.columns[X.dtypes == 'category'])
+    feat = X.columns
+
+    skf = StratifiedKFold(n_splits=5, shuffle=False, random_state=2020)
+    for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
+        run_one_round(dataset_name, n_estimators, max_depth, encoding,
+                      train_idx, valid_idx, X, y, feat, fold=f_idx)
+
+
+def run_one_round(dataset_name, n_estimators, max_depth, encoding,
+                  train_idx, valid_idx, X, y, feature_names, fold=0):
     print(dataset_name, n_estimators, max_depth, encoding)
     start = timer()
 
     SEED = 42
 
-    X, y = load_data(dataset_name)
-    feat = X.columns
+    x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+    x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
+
+    # multilabel case
+    num_classes = y_valid.nunique()
+    metric_averaging = 'micro' if num_classes > 2 else 'binary'
 
     lgb_start = timer()
-    # holdout set
-    x_train, x_test, y_train, y_test = train_test_split(X, y,
-                                                        stratify=y,
-                                                        train_size=0.8,
-                                                        random_state=SEED)
     # train/validation set
     x_tr, x_val, y_tr, y_val = train_test_split(x_train, y_train,
                                                 stratify=y_train,
@@ -41,26 +55,28 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
 
     # using native api
     lgb_train = lgb.Dataset(data=x_tr,
-                            label=y_tr,
-                            )
+                            label=y_tr)
     lgb_valid = lgb.Dataset(data=x_val,
                             label=y_val,
                             reference=lgb_train)
-    # lgb_test  = lgb.Dataset(data=x_test,
-    #                         categorical_feature=schema['categorical_columns'],
-    #                         reference=lgb_train)
 
-    params = {'objective': 'multiclass', 'metric': 'multi_logloss', 'num_classes': 3, 'verbosity': -1}
+    params = {'objective': 'multiclass', 'metric': 'multi_logloss', 'num_classes': num_classes, 'verbosity': -1}
     model = lgb.train(params=params,
                       train_set=lgb_train,
                       valid_sets=[lgb_valid],
                       valid_names=['valid'], early_stopping_rounds=10, verbose_eval=False)
     lgb_end = timer()
 
+    lgb_vanilla_pred = np.argmax(model.predict(x_valid), axis=1)
+    vanilla_metrics = {'accuracy':  accuracy_score(y_valid, lgb_vanilla_pred),
+                       'precision': precision_score(y_valid, lgb_vanilla_pred, average=metric_averaging),
+                       'recall':    recall_score(y_valid, lgb_vanilla_pred, average=metric_averaging),
+                       'f1':        f1_score(y_valid, lgb_vanilla_pred, average=metric_averaging)}
+
     ext_start = timer()
     lgb_extractor = LGBMRuleExtractor()
-    lgb_extractor.fit(X, y, model=model, feature_names=feat)
-    res_str = lgb_extractor.transform(X, y)
+    lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
+    res_str = lgb_extractor.transform(x_train, y_train)
     ext_end = timer()
 
     exp_dir = './tmp/experiment_lgb'
@@ -72,7 +88,7 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
         outfile.write(res_str)
 
     with open(tmp_class_file, 'w', encoding='utf-8') as outfile:
-        outfile.write('class(0..{}).'.format(int(y.nunique() - 1)))
+        outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
 
     asprin_preference = './asp_encoding/asprin_preference.lp'
     asprin_skyline    = './asp_encoding/skyline.lp'
@@ -103,6 +119,23 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
     log_json_quali = os.path.join(exp_dir, 'output_quali.json')
 
     if asprin_completed:
+        rules = []
+        for ans_idx, ans_set in enumerate(answers):
+            if not ans_set.is_optimal:
+                continue
+            for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
+                pat_idx = ans[-1][0]
+                pat = lgb_extractor.patterns_[pat_idx]  # type: Pattern
+                rules.append(pat)
+            break
+        rule_classifier = RuleClassifier(rules)
+        rule_classifier.fit(x_train, y_train)
+        rule_pred = rule_classifier.predict(x_valid)
+        rule_pred_metrics = {'accuracy': accuracy_score(y_valid, rule_pred),
+                             'precision': precision_score(y_valid, rule_pred, average=metric_averaging),
+                             'recall': recall_score(y_valid, rule_pred, average=metric_averaging),
+                             'f1': f1_score(y_valid, rule_pred, average=metric_averaging)}
+
         out_dict = {
             # experiment
             'dataset': dataset_name,
@@ -125,6 +158,10 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
             'py_lgb_time': lgb_end - lgb_start,
             'py_ext_time': ext_end - ext_start,
             'py_asprin_time': asprin_end - asprin_start,
+            # metrics
+            'fold': fold,
+            'vanilla_metrics': vanilla_metrics,
+            'rule_metrics': rule_pred_metrics,
         }
     else:
         out_dict = {
@@ -149,6 +186,10 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
             'py_lgb_time': lgb_end - lgb_start,
             'py_ext_time': ext_end - ext_start,
             'py_asprin_time': asprin_end - asprin_start,
+            # metrics
+            'fold': fold,
+            'vanilla_metrics': vanilla_metrics,
+            # 'rule_metrics': rule_pred_metrics,
         }
     with open(log_json, 'a', encoding='utf-8') as out_log_json:
         out_log_json.write(json.dumps(out_dict)+'\n')
@@ -232,8 +273,8 @@ if __name__ == '__main__':
     n_estimators = [200]  # max boosting rounds if early stopping fails
     # max_depths = [4, 5, 6, 7, 8]
     max_depths = [8]
-    # encodings = ['skyline', 'maximal', 'closed']
-    encodings = ['skyline']
+    encodings = ['skyline', 'maximal', 'closed']
+    # encodings = ['skyline']
 
     combinations = product(data, n_estimators, max_depths, encodings)
     for cond_tuple in tqdm(combinations):
