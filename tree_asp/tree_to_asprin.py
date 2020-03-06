@@ -61,7 +61,7 @@ if __name__ == '__main__':
     with open(tmp_class_file, 'w', encoding='utf-8') as outfile:
         outfile.write('class(0..{}).'.format(int(y.nunique() - 1)))
 
-    asprin_preference = './asp_encoding/asprin_preference.lp'
+    asprin_preference = './asp_encoding/asprin_pareto_1.lp'
     asprin_skyline    = './asp_encoding/skyline.lp'
 
     o = subprocess.run(['asprin', asprin_preference, asprin_skyline, tmp_class_file, tmp_pattern_file, '0'], capture_output=True)

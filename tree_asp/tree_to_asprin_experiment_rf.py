@@ -20,7 +20,7 @@ from clasp_parser import generate_answers
 from pattern import Pattern
 
 
-def run_experiment(dataset_name, n_estimators, max_depth, encoding):
+def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref):
     X, y = load_data(dataset_name)
     categorical_features = list(X.columns[X.dtypes == 'category'])
     if len(categorical_features) > 0:
@@ -30,13 +30,13 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding):
 
     skf = StratifiedKFold(n_splits=5, shuffle=False, random_state=2020)
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
-        run_one_round(dataset_name, n_estimators, max_depth, encoding,
+        run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                       train_idx, valid_idx, X, y, feat, fold=f_idx)
 
 
-def run_one_round(dataset_name, n_estimators, max_depth, encoding,
+def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
-    print(dataset_name, n_estimators, max_depth, encoding)
+    print(dataset_name, n_estimators, max_depth, encoding, asprin_pref, fold)
     start = timer()
 
     SEED = 42
@@ -75,16 +75,19 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding,
     with open(tmp_class_file, 'w', encoding='utf-8') as outfile:
         outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
 
-    asprin_preference = './asp_encoding/asprin_preference.lp'
+    asprin_pareto_1   = './asp_encoding/asprin_pareto_1.lp'
+    asprin_pareto_2   = './asp_encoding/asprin_pareto_2.lp'
+    asprin_lexico     = './asp_encoding/asprin_lexico.lp'
     asprin_skyline    = './asp_encoding/skyline.lp'
     asprin_maximal    = './asp_encoding/maximal.lp'
     asprin_closed     = './asp_encoding/closed.lp'
 
     asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal, 'closed': asprin_closed}
+    asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2, 'lexico': asprin_lexico}
 
     asprin_start = timer()
     try:
-        o = subprocess.run(['asprin', asprin_preference, asprin_enc[encoding],
+        o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
                             tmp_class_file, tmp_pattern_file, '0',
                             ], capture_output=True, timeout=60)
         asprin_completed = True
@@ -127,9 +130,10 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding,
             'n_estimators': n_estimators,
             'max_depth': max_depth,
             'encoding': encoding,
+            'asprin_preference': asprin_pref,
             'asprin_completed': asprin_completed,
             # clasp
-            'models': int(clasp_info.stats['Models']),
+            'models': clasp_info.stats['Models'],
             'optimum': True if clasp_info.stats['Optimum'] == 'yes' else False,
             'optimal': int(clasp_info.stats['Optimal']),
             'clasp_time': clasp_info.stats['Time'],
@@ -154,6 +158,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding,
             'n_estimators': n_estimators,
             'max_depth': max_depth,
             'encoding': encoding,
+            'asprin_preference': asprin_pref,
             'asprin_completed': asprin_completed,
             # # clasp
             # 'models': int(clasp_info.stats['Models']),
@@ -260,8 +265,9 @@ if __name__ == '__main__':
     # max_depths = [5, 6, 7]
     encodings = ['skyline', 'maximal', 'closed']
     # encodings = ['skyline']
+    asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
 
-    combinations = product(data, n_estimators, max_depths, encodings)
+    combinations = product(data, n_estimators, max_depths, encodings, asprin_pref)
     for cond_tuple in tqdm(combinations):
         run_experiment(*cond_tuple)
     end_time = timer()
