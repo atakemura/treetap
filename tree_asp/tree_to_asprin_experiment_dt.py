@@ -91,7 +91,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     asprin_start = timer()
     try:
         o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
-                            tmp_class_file, tmp_pattern_file, '0',
+                            tmp_class_file, tmp_pattern_file,  # '0',
                             ], capture_output=True, timeout=60)
         asprin_completed = True
     except subprocess.TimeoutExpired:
