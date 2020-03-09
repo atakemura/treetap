@@ -20,7 +20,6 @@ from clasp_parser import generate_answers
 from pattern import Pattern
 
 
-
 def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref):
     X, y = load_data(dataset_name)
     categorical_features = list(X.columns[X.dtypes == 'category'])
@@ -34,7 +33,7 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref)
 
 def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
-    print(dataset_name, n_estimators, max_depth, encoding, asprin_pref)
+    print(dataset_name, n_estimators, max_depth, encoding, asprin_pref, fold)
     start = timer()
 
     SEED = 42
@@ -103,8 +102,8 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     asprin_start = timer()
     try:
         o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
-                            tmp_class_file, tmp_pattern_file, # '0',
-                            ], capture_output=True, timeout=60)
+                            tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8'
+                            ], capture_output=True, timeout=120)
         asprin_completed = True
     except subprocess.TimeoutExpired:
         o = None
@@ -122,22 +121,24 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     log_json_quali = os.path.join(exp_dir, 'output_quali.json')
 
     if asprin_completed:
-        rules = []
+        scores = []
         for ans_idx, ans_set in enumerate(answers):
             if not ans_set.is_optimal:
                 continue
+            rules = []
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
                 pat = lgb_extractor.patterns_[pat_idx]  # type: Pattern
                 rules.append(pat)
-            break
-        rule_classifier = RuleClassifier(rules)
-        rule_classifier.fit(x_train, y_train)
-        rule_pred = rule_classifier.predict(x_valid)
-        rule_pred_metrics = {'accuracy': accuracy_score(y_valid, rule_pred),
-                             'precision': precision_score(y_valid, rule_pred, average=metric_averaging),
-                             'recall': recall_score(y_valid, rule_pred, average=metric_averaging),
-                             'f1': f1_score(y_valid, rule_pred, average=metric_averaging)}
+            # break
+            rule_classifier = RuleClassifier(rules)
+            rule_classifier.fit(x_train, y_train)
+            rule_pred = rule_classifier.predict(x_valid)
+            rule_pred_metrics = {'accuracy': accuracy_score(y_valid, rule_pred),
+                                 'precision': precision_score(y_valid, rule_pred, average=metric_averaging),
+                                 'recall': recall_score(y_valid, rule_pred, average=metric_averaging),
+                                 'f1': f1_score(y_valid, rule_pred, average=metric_averaging)}
+            scores.append((ans_idx, rule_pred_metrics))
 
         out_dict = {
             # experiment
@@ -165,7 +166,8 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             # metrics
             'fold': fold,
             'vanilla_metrics': vanilla_metrics,
-            'rule_metrics': rule_pred_metrics,
+            # 'rule_metrics': rule_pred_metrics,
+            'rule_metrics': scores,
         }
     else:
         out_dict = {
