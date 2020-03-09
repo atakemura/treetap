@@ -256,19 +256,23 @@ def load_data(dataset_name):
 
 if __name__ == '__main__':
     start_time = timer()
-    # data = ['breast', 'breast_sk', 'wine', 'autism']
-    data = ['breast_sk', 'iris', 'wine',
-            'autism', 'breast', 'cars', 'credit_australia',
-            'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']
-    # n_estimators = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
-    n_estimators = [10]
-    # max_depths = [3, 4, 5, 6, 7, 8]
-    max_depths = [5]
-    # n_estimators = [9, 10, 11]
-    # max_depths = [5, 6, 7]
-    encodings = ['skyline', 'maximal', 'closed']
-    # encodings = ['skyline']
-    asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
+
+    debug_mode = True
+
+    if debug_mode:
+        data = ['breast_sk', 'wine']
+        n_estimators = [10]
+        max_depths = [5]
+        encodings = ['skyline']
+        asprin_pref = ['pareto_1']
+    else:
+        data = ['breast_sk', 'iris', 'wine',
+                'autism', 'breast', 'cars', 'credit_australia',
+                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']
+        n_estimators = [10]
+        max_depths = [5]
+        encodings = ['skyline', 'maximal', 'closed']
+        asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
 
     combinations = product(data, n_estimators, max_depths, encodings, asprin_pref)
     for cond_tuple in tqdm(combinations):
