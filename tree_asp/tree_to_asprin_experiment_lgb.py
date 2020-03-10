@@ -33,7 +33,7 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref)
 
 def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
-    print(dataset_name, n_estimators, max_depth, encoding, asprin_pref, fold)
+    print('[lgb]', dataset_name, n_estimators, max_depth, encoding, asprin_pref, fold)
     start = timer()
 
     SEED = 42

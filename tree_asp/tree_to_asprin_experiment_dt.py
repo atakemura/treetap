@@ -39,7 +39,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     # run single round of model + asprin
     # print fold into json
     # calculate accuracy scores
-    print(dataset_name, n_estimators, max_depth, encoding, asprin_pref, fold)
+    print('[dt]', dataset_name, n_estimators, max_depth, encoding, asprin_pref, fold)
     start = timer()
 
     SEED = 42
