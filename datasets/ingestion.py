@@ -20,6 +20,8 @@ def ingest_data():
         'kidney':           kidney_parser,
         'krvskp':           chess_parser,
         'voting':           voting_parser,
+        'airline':            airline_parser,
+        'census':             census_parser
     }
     base = Path(__file__).parent / 'ingestion'
     for k, v in dataset_parser.items():
@@ -321,6 +323,63 @@ def voting_parser():
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
     print('dataset: voting written to {}'.format(out_dir / 'voting.csv'))
+
+
+def airline_parser():
+    df = pd.read_csv(Path(__file__).parent / 'ingestion' / 'airline' / 'phpvcoG8S.csv',
+                     names=['airline', 'flight', 'airport_from', 'airport_to', 'day_of_week',
+                            'time', 'length', 'delay'], header=1)
+    # label normalization
+    df.rename({'delay': 'label'}, axis=1, inplace=True)
+    # schema
+    schema = {
+        'id_col': '',
+        'categorical_columns': ['airline', 'airport_from', 'airport_to', 'day_of_week'],
+        'numerical_columns': ['flight', 'time', 'length'],
+        'label_column': 'label'
+    }
+    check_dtypes(schema, df)
+    out_dir = Path(Path(__file__).parent / 'datasets' / 'airline')
+    out_dir.mkdir(exist_ok=True)
+    df.to_csv(out_dir / 'airline.csv', header=True, index=False)
+    with open(out_dir / 'schema.json', 'w') as out_file:
+        json.dump(schema, out_file, indent=4)
+    print('dataset: airline written to {}'.format(out_dir / 'airline.csv'))
+
+
+def census_parser():
+    df = pd.read_csv(Path(__file__).parent / 'ingestion' / 'census' / 'census-income.combined',
+                     names=['aage', 'aaclswkr', 'adtind', 'adtocc', 'ahga', 'ahrspay', 'ahscol',
+                            'amaritl', 'amjind', 'amjocc', 'arace', 'areorgn', 'asex', 'aunmem',
+                            'auntype', 'awkstat', 'capgain', 'caploss', 'divval',  'filestat',
+                            'grinreg', 'grinst', 'hhdfmx', 'hhdrel', 'marsupwt', 'migmtr1', 'migmtr3',
+                            'migmtr4', 'migsame', 'migsun', 'noemp', 'parent',
+                            'perfntvty', 'pemntvty', 'penatvty', 'pricitshp', 'seotr',
+                            'vetqva', 'vetyn', 'wkswork', 'year', 'label'])
+    # label normalization
+    df.drop('marsupwt', axis=1, inplace=True)
+    df['label'].replace({' - 50000.': 0, ' 50000+.': 1}, inplace=True)
+    # schema
+    schema = {
+        'id_col': '',
+        'categorical_columns': ['aaclswkr', 'adtind', 'adtocc', 'ahga', 'ahscol', 'amaritl', 'amjind', 'amjocc',
+                                'arace', 'areorgn', 'asex', 'aunmem', 'auntype', 'awkstat', 'filestat',
+                                'grinreg', 'grinst', 'hhdfmx', 'hhdrel', 'migmtr1', 'migmtr3', 'migmtr4', 'migsame',
+                                'migsun',
+                                'parent', 'perfntvty', 'pemntvty', 'penatvty', 'pricitshp',
+                                'seotr',  'vetqva', 'year', 'vetyn'],
+             'numerical_columns': ['aage', 'ahrspay', 'capgain', 'caploss', 'divval',
+                                   # 'marsupwt',
+                                   'noemp', 'wkswork'],
+        'label_column': 'label'
+    }
+    check_dtypes(schema, df)
+    out_dir = Path(Path(__file__).parent / 'datasets' / 'census')
+    out_dir.mkdir(exist_ok=True)
+    df.to_csv(out_dir / 'census.csv', header=True, index=False)
+    with open(out_dir / 'schema.json', 'w') as out_file:
+        json.dump(schema, out_file, indent=4)
+    print('dataset: census written to {}'.format(out_dir / 'census.csv'))
 
 
 if __name__ == '__main__':
