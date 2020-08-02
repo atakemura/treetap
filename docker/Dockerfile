@@ -9,6 +9,7 @@ RUN apt update && \
     pip install --upgrade pip && \
     pip install problog && \
     pip install category_encoders && \
+    pip install optuna && \
     conda install -c potassco clingo && \
     conda install -c potassco asprin && \
     conda install -c conda-forge lightgbm && \
