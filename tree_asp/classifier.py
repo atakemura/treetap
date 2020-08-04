@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from typing import List
+import dask.dataframe as dd
 
 from pattern import Pattern
 from rule_extractor import LT_PATTERN, LE_PATTERN, GT_PATTERN,\
@@ -24,9 +25,12 @@ class RuleClassifier:
 
     def predict(self, X: pd.DataFrame, **params):
         # assume pandas data frame instead of numpy array
-        predicted = np.empty(X.shape[0], dtype=np.int32)
-        predicted_ = X.apply(self.predict_single_row, axis=1)
-        assert X.shape[0] == predicted.shape[0]
+        # predicted = np.empty(X.shape[0], dtype=np.int32)
+        # predicted_ = X.apply(self.predict_single_row, axis=1)
+
+        Xdd = dd.from_pandas(X, npartitions=32)
+        predicted_ = Xdd.apply(self.predict_single_row, axis=1, meta=(None, np.int32)).compute(scheduler='processes')
+        # assert X.shape[0] == predicted.shape[0]
         assert X.shape[0] == predicted_.shape[0]
         return predicted_
 

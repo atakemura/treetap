@@ -9,6 +9,8 @@ from sklearn.tree import _tree
 from sklearn.utils.validation import check_is_fitted
 
 from functools import reduce
+from multiprocessing import Pool
+from os import cpu_count
 from operator import and_
 
 from pattern import Pattern, Item
@@ -661,12 +663,19 @@ class LGBMRuleExtractor:
 
         model_dump = model.dump_model()
         self.num_tree_per_iteration = model_dump['num_tree_per_iteration']
-        lgbtrees = [LGBMTree(x) for x in model_dump['tree_info']]
+        with Pool(processes=cpu_count()) as pool:
+            lgbtrees = pool.map(LGBMTree, model_dump['tree_info'])
+        # lgbtrees = [LGBMTree(x) for x in model_dump['tree_info']]
         rules = {}
-        for t_idx, tree in enumerate(lgbtrees):
-            _, rules[t_idx] = self.export_text_rule_tree(tree)
+        with Pool(processes=cpu_count())as pool:
+            _tmp_rules = pool.map(self.export_text_rule_tree, lgbtrees)
+        # for t_idx, tree in enumerate(lgbtrees):
+        #     _, rules[t_idx] = self.export_text_rule_tree(tree)
+        for t_idx, tree in enumerate(_tmp_rules):
+            _, rules[t_idx] = _tmp_rules[t_idx]
 
-        rules = self.export_text_rule_lgb(rules, X, y)
+        rules = self.export_text_rule_lgb_parallel(rules, X, y)
+        # rules = self.export_text_rule_lgb(rules, X, y)
 
         printable_dicts = self.asp_dict_from_rules(rules)
 
@@ -748,6 +757,67 @@ class LGBMRuleExtractor:
                 else:
                     rule_dict['is_tree_max'] = False
         return rule_dict
+
+    def export_text_rule_lgb_parallel(self, tree_rules, X, y):
+        _tmp_rules = tree_rules
+        rules = {}
+        # adding rule statistics
+        with Pool(cpu_count()) as pool:
+            # make same number of x y
+            mod_rules = pool.starmap(self.export_text_rule_lgb_parallel_sub,
+                                     ((t_rules, X, y) for t_rules in _tmp_rules.values()))
+        for t_idx, tree in enumerate(mod_rules):
+            rules[t_idx] = mod_rules[t_idx]
+        return rules
+
+    def export_text_rule_lgb_parallel_sub(self, t_rules, X, y):
+        rules = t_rules
+        for path_rule in rules.values():
+            _tmp_dfs = []
+            for rule_key in path_rule.keys():
+                # skip non-conditions
+                if rule_key in self.non_rule_keys:
+                    continue
+                # collect conditions and boolean mask
+                else:
+                    if LT_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(LT_PATTERN, 1)
+                        _tmp_dfs.append(getattr(X[_rule_field], 'lt')(float(_rule_threshold)))
+                    elif LE_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(LE_PATTERN, 1)
+                        _tmp_dfs.append(getattr(X[_rule_field], 'le')(float(_rule_threshold)))
+                    elif GT_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(GT_PATTERN, 1)
+                        _tmp_dfs.append(getattr(X[_rule_field], 'gt')(float(_rule_threshold)))
+                    elif GE_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(GE_PATTERN, 1)
+                        _tmp_dfs.append(getattr(X[_rule_field], 'ge')(float(_rule_threshold)))
+                    elif EQ_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(EQ_PATTERN, 1)
+                        inverse_map = dict(enumerate(X[_rule_field].cat.categories))
+                        # rule threshold in this case can be like '0||1||2'
+                        _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
+                        _tmp_dfs.append(getattr(X[_rule_field], 'isin')(_cat_th))
+                    elif NEQ_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(NEQ_PATTERN, 1)
+                        inverse_map = dict(enumerate(X[_rule_field].cat.categories))
+                        # rule threshold in this case can be like '0||1||2'
+                        _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
+                        # note the bitwise complement ~
+                        _tmp_dfs.append(~ getattr(X[_rule_field], 'isin')(_cat_th))
+                    else:
+                        raise ValueError('No key found')
+            # reduce boolean mask
+            mask_res = reduce(and_, _tmp_dfs)
+            # these depend on the entire training data, not on the bootstrapped data that the original rf uses
+            path_rule['mode_class'] = y[mask_res].mode()[0]
+            path_rule['condition_length'] = len(_tmp_dfs)
+            path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
+            path_rule['frequency'] = len(y[mask_res])
+            path_rule['error_rate'] = 1 - accuracy_score(y[mask_res],
+                                                         [path_rule['mode_class'] for _ in range(len(y[mask_res]))])
+
+        return rules
 
     def export_text_rule_lgb(self, tree_rules, X, y):
         rules = tree_rules
