@@ -21,7 +21,9 @@ def ingest_data():
         'krvskp':           chess_parser,
         'voting':           voting_parser,
         'airline':            airline_parser,
-        'census':             census_parser
+        'census':             census_parser,
+        'kdd99':                kdd99_parser,
+        'eeg':                  eeg_parser,
     }
     base = Path(__file__).parent / 'ingestion'
     for k, v in dataset_parser.items():
@@ -51,11 +53,11 @@ def check_dtypes(schema, df):
         except AssertionError:
             raise ValueError('Expected numeric but received {} for column {}'.format(df[col].dtype, col))
     # check label (only supports binary classification)
-    try:
-        assert df[schema['label_column']].nunique() == 2 and set(df[schema['label_column']].unique()) == {0, 1}
-    except AssertionError:
-        raise ValueError('Expected label to be {{0, 1}} but received {}'
-                         .format(set(df[schema['label_column']].unique())))
+    # try:
+    #     assert df[schema['label_column']].nunique() == 2 and set(df[schema['label_column']].unique()) == {0, 1}
+    # except AssertionError:
+    #     raise ValueError('Expected label to be {{0, 1}} but received {}'
+    #                      .format(set(df[schema['label_column']].unique())))
     # check all columns except label columns are either in numeric or categorical
     df_cols = set(df.columns) - {schema['label_column']} - {schema['id_col']}
     diff_cols = df_cols - set(schema['categorical_columns']) - set(schema['numerical_columns'])
@@ -380,6 +382,97 @@ def census_parser():
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
     print('dataset: census written to {}'.format(out_dir / 'census.csv'))
+
+
+def kdd99_parser():
+    df = pd.read_csv(Path(__file__).parent / 'ingestion' / 'kdd99' / 'KDDCup99.csv',
+                     names=['duration','protocol_type','service','flag','src_bytes','dst_bytes',
+                            'land','wrong_fragment','urgent','hot','num_failed_logins','logged_in',
+                            'lnum_compromised','lroot_shell','lsu_attempted','lnum_root',
+                            'lnum_file_creations','lnum_shells','lnum_access_files',
+                            'lnum_outbound_cmds','is_host_login','is_guest_login','count','srv_count',
+                            'serror_rate','srv_serror_rate','rerror_rate','srv_rerror_rate',
+                            'same_srv_rate','diff_srv_rate','srv_diff_host_rate','dst_host_count',
+                            'dst_host_srv_count','dst_host_same_srv_rate','dst_host_diff_srv_rate',
+                            'dst_host_same_src_port_rate','dst_host_srv_diff_host_rate',
+                            'dst_host_serror_rate','dst_host_srv_serror_rate','dst_host_rerror_rate',
+                            'dst_host_srv_rerror_rate','label'],
+                            header=1)
+
+    # label normalization
+    df['label'].replace({
+        'back': 0,
+        'buffer_overflow': 1,
+        'ftp_write': 2,
+        'guess_passwd': 3,
+        'imap': 4,
+        'ipsweep': 5,
+        'land': 6,
+        'loadmodule': 7,
+        'multihop': 8,
+        'neptune': 9,
+        'nmap': 10,
+        'normal': 11,
+        'perl': 12,
+        'phf': 13,
+        'pod': 14,
+        'portsweep': 15,
+        'rootkit': 16,
+        'satan': 17,
+        'smurf': 18,
+        'spy': 19,
+        'teardrop': 20,
+        'warezclient': 21,
+        'warezmaster': 22
+    }, inplace=True)
+    # schema
+    schema = {
+        'id_col': '',
+        'categorical_columns': ['protocol_type', 'service', 'flag', 'land',
+                                'logged_in', 'is_host_login', 'is_guest_login'],
+        'numerical_columns': ['duration', 'src_bytes', 'dst_bytes',
+                              'wrong_fragment', 'urgent', 'hot', 'num_failed_logins', 'lnum_compromised', 'lroot_shell',
+                              'lsu_attempted','lnum_root','lnum_file_creations','lnum_shells','lnum_access_files','lnum_outbound_cmds',
+                              'count', 'srv_count', 'serror_rate', 'srv_serror_rate', 'rerror_rate',
+                              'srv_rerror_rate','same_srv_rate','diff_srv_rate','srv_diff_host_rate','dst_host_count',
+                              'dst_host_srv_count','dst_host_same_srv_rate','dst_host_diff_srv_rate','dst_host_same_src_port_rate',
+                              'dst_host_srv_diff_host_rate','dst_host_serror_rate','dst_host_srv_serror_rate',
+                              'dst_host_rerror_rate','dst_host_srv_rerror_rate',],
+        'label_column': 'label'
+    }
+    check_dtypes(schema, df)
+    out_dir = Path(Path(__file__).parent / 'datasets' / 'kdd99')
+    out_dir.mkdir(exist_ok=True)
+    df.to_csv(out_dir / 'kdd99.csv', header=True, index=False)
+    with open(out_dir / 'schema.json', 'w') as out_file:
+        json.dump(schema, out_file, indent=4)
+    print('dataset: kdd99 written to {}'.format(out_dir / 'kdd99.csv'))
+
+
+def eeg_parser():
+    df = pd.read_csv(Path(__file__).parent / 'ingestion' / 'eeg' / 'phplE7q6h.csv',
+                     names=['V1','V2','V3','V4','V5','V6',
+                            'V7','V8','V9','V10','V11','V12',
+                            'V13', 'V14', 'Class'],
+                     header=1)
+    # label normalization
+    df.rename({'Class': 'label'}, axis=1, inplace=True)
+    df['label'].replace({1: 0, 2: 1}, inplace=True)
+    # schema
+    schema = {
+        'id_col': '',
+        'categorical_columns': [],
+             'numerical_columns': ['V1','V2','V3','V4','V5','V6','V7',
+                                   'V8','V9','V10','V11','V12','V13', 'V14'],
+        'label_column': 'label'
+    }
+    check_dtypes(schema, df)
+    out_dir = Path(Path(__file__).parent / 'datasets' / 'eeg')
+    out_dir.mkdir(exist_ok=True)
+    df.to_csv(out_dir / 'eeg.csv', header=True, index=False)
+    with open(out_dir / 'schema.json', 'w') as out_file:
+        json.dump(schema, out_file, indent=4)
+    print('dataset: eeg written to {}'.format(out_dir / 'eeg.csv'))
 
 
 if __name__ == '__main__':
