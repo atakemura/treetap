@@ -17,7 +17,7 @@ RUN apt update && \
     conda install -c conda-forge shap
 
 # until this is merged https://github.com/potassco/asprin/pull/3
-RUN sed -i -e 's/async/async_/g' /opt/conda/lib/python3.7/site-packages/asprin/src/utils/clingo_signal_handler.py
+# RUN sed -i -e 's/async/async_/g' /opt/conda/lib/python3.7/site-packages/asprin/src/utils/clingo_signal_handler.py
 
 #    && \
 #    conda install -c r r &&
