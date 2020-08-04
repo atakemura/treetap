@@ -14,6 +14,7 @@ from os import cpu_count
 from operator import and_
 
 from pattern import Pattern, Item
+from utils import timer_exec
 
 LT_PATTERN = ' < '
 LE_PATTERN = ' <= '
@@ -663,23 +664,32 @@ class LGBMRuleExtractor:
 
         model_dump = model.dump_model()
         self.num_tree_per_iteration = model_dump['num_tree_per_iteration']
-        with Pool(processes=cpu_count()) as pool:
-            lgbtrees = pool.map(LGBMTree, model_dump['tree_info'])
+
+        with timer_exec('LGBMTree init'):
+            with Pool(processes=cpu_count()) as pool:
+                lgbtrees = pool.map(LGBMTree, model_dump['tree_info'])
         # lgbtrees = [LGBMTree(x) for x in model_dump['tree_info']]
+
         rules = {}
-        with Pool(processes=cpu_count())as pool:
-            _tmp_rules = pool.map(self.export_text_rule_tree, lgbtrees)
+        with timer_exec('export text rule tree'):
+            with Pool(processes=cpu_count())as pool:
+                _tmp_rules = pool.map(self.export_text_rule_tree, lgbtrees)
+
         # for t_idx, tree in enumerate(lgbtrees):
         #     _, rules[t_idx] = self.export_text_rule_tree(tree)
-        for t_idx, tree in enumerate(_tmp_rules):
-            _, rules[t_idx] = _tmp_rules[t_idx]
+        with timer_exec('enumerate rules'):
+            for t_idx, tree in enumerate(_tmp_rules):
+                _, rules[t_idx] = _tmp_rules[t_idx]
 
-        rules = self.export_text_rule_lgb_parallel(rules, X, y)
+        with timer_exec('parallel export text rule'):
+            rules = self.export_text_rule_lgb_parallel(rules, X, y)
         # rules = self.export_text_rule_lgb(rules, X, y)
 
-        printable_dicts = self.asp_dict_from_rules(rules)
+        with timer_exec('asp dict from rules'):
+            printable_dicts = self.asp_dict_from_rules(rules)
 
-        print_str = self.asp_str_from_dicts(printable_dicts)
+        with timer_exec('print asp'):
+            print_str = self.asp_str_from_dicts(printable_dicts)
         self.asp_fact_str = print_str
         self.fitted_ = True
         return self
