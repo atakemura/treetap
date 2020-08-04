@@ -20,10 +20,10 @@ def ingest_data():
         'kidney':           kidney_parser,
         'krvskp':           chess_parser,
         'voting':           voting_parser,
-        'airline':            airline_parser,
-        'census':             census_parser,
-        'kdd99':                kdd99_parser,
-        'eeg':                  eeg_parser,
+        'airline':          airline_parser,
+        'census':           census_parser,
+        'kdd99':            kdd99_parser,
+        'eeg':              eeg_parser,
     }
     base = Path(__file__).parent / 'ingestion'
     for k, v in dataset_parser.items():
