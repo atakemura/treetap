@@ -4,7 +4,7 @@ import lightgbm as lgb
 from sklearn.base import is_classifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, recall_score, precision_score
 from sklearn.tree import _tree
 from sklearn.utils.validation import check_is_fitted
 
@@ -645,6 +645,7 @@ class LGBMRuleExtractor:
         self.verbose = verbose
         self.TREE_LEAF = -1
         self.non_rule_keys = ['class', 'condition_length', 'error_rate',
+                              'precision', 'recall', 'f1_score',
                               'frequency', 'frequency_am', 'mode_class', 'value',
                               'is_tree_max']
         self.asp_fact_str = None
@@ -652,6 +653,7 @@ class LGBMRuleExtractor:
         self.patterns_ = None
         self.items_ = None
         self.num_tree_per_iteration = None
+        self.metric_averaging = None
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         if not isinstance(model, lgb.Booster):
@@ -661,6 +663,9 @@ class LGBMRuleExtractor:
             self.feature_names = ['feature_{}'.format(i) for i in range(X.shape[0])]
         else:
             self.feature_names = feature_names
+
+        num_classes = y.nunique()
+        self.metric_averaging = 'micro' if num_classes > 2 else 'binary'
 
         model_dump = model.dump_model()
         self.num_tree_per_iteration = model_dump['num_tree_per_iteration']
@@ -821,11 +826,17 @@ class LGBMRuleExtractor:
             mask_res = reduce(and_, _tmp_dfs)
             # these depend on the entire training data, not on the bootstrapped data that the original rf uses
             path_rule['mode_class'] = y[mask_res].mode()[0]
+            y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
             path_rule['condition_length'] = len(_tmp_dfs)
             path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
             path_rule['frequency'] = len(y[mask_res])
-            path_rule['error_rate'] = 1 - accuracy_score(y[mask_res],
-                                                         [path_rule['mode_class'] for _ in range(len(y[mask_res]))])
+            path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
+            path_rule['precision'] = precision_score(y[mask_res], y_pred, 
+                                                    #  pos_label=path_rule['mode_class'],
+                                                     average=self.metric_averaging)
+            path_rule['recall'] = recall_score(y[mask_res], y_pred,
+                                            #    pos_label=path_rule['mode_class'],
+                                               average=self.metric_averaging)
 
         return rules
 
@@ -874,11 +885,13 @@ class LGBMRuleExtractor:
                 mask_res = reduce(and_, _tmp_dfs)
                 # these depend on the entire training data, not on the bootstrapped data that the original rf uses
                 path_rule['mode_class'] = y[mask_res].mode()[0]
+                y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
                 path_rule['frequency'] = len(y[mask_res])
-                path_rule['error_rate'] = 1 - accuracy_score(y[mask_res],
-                                                             [path_rule['mode_class'] for _ in range(len(y[mask_res]))])
+                path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
+                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'], average=self.metric_averaging)
+                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'], average=self.metric_averaging)
 
         return rules
 
@@ -945,6 +958,8 @@ class LGBMRuleExtractor:
                     'support': node_rule['frequency'],
                     'size': len(_list_items),
                     'error_rate': node_rule['error_rate'],
+                    'precision': node_rule['precision'],
+                    'recall': node_rule['recall'],
                     'mode_class': node_rule['mode_class']
                 }
                 print_dicts.append(prn)
@@ -955,6 +970,8 @@ class LGBMRuleExtractor:
                                             support=node_rule['frequency'],
                                             size=len(_list_items),
                                             error_rate=int(round(node_rule['error_rate'] * 100)),
+                                            precision=int(round(node_rule['precision'] * 100)),
+                                            recall=int(round(node_rule['recall'] * 100)),
                                             mode_class=node_rule['mode_class']))
         self.patterns_ = ptn_obj_list
         self.items_ = itm_obj_list
@@ -971,6 +988,8 @@ class LGBMRuleExtractor:
             prn.append('support({},{}).'.format(ptn_idx, pattern_dict['support']))
             prn.append('size({},{}).'.format(ptn_idx, pattern_dict['size']))
             prn.append('error_rate({},{}).'.format(ptn_idx, int(round(pattern_dict['error_rate'] * 100))))
+            prn.append('precision({},{}).'.format(ptn_idx, int(round(pattern_dict['precision'] * 100))))
+            prn.append('recall({},{}).'.format(ptn_idx, int(round(pattern_dict['recall'] * 100))))
             prn.append('mode_class({},{}).'.format(ptn_idx, pattern_dict['mode_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)

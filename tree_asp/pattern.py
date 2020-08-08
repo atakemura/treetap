@@ -1,20 +1,22 @@
 class Pattern:
-    def __init__(self, idx, pattern_str, items, support, size, error_rate, mode_class):
+    def __init__(self, idx, pattern_str, items, support, size, error_rate, precision, recall, mode_class):
         self.idx = idx
         self.pattern_str = pattern_str
         self.items = items
         self.support = support
         self.size = size
         self.error_rate = error_rate
+        self.precision = precision
+        self.recall = recall
         self.mode_class = mode_class
 
     def __str__(self):
-        return 'pattern_idx={}. pattern={}. items={}. size={}. mode_class={}. error_rate={}.'.format(
-            self.idx, self.pattern_str, self.items, self.size, self.mode_class, self.error_rate)
+        return 'pattern_idx={}. pattern={}. items={}. size={}. mode_class={}. error_rate={}. precision={}. recall={}.'.format(
+            self.idx, self.pattern_str, self.items, self.size, self.mode_class, self.error_rate, self.precision, self.recall)
 
     def __repr__(self):
-        return 'Pattern({}, {}, {}, {}, {}, {}, {})'.format(
-            self.idx, self.pattern_str, self.items, self.support, self.size, self.error_rate, self.mode_class)
+        return 'Pattern({}, {}, {}, {}, {}, {}, {}, {}, {})'.format(
+            self.idx, self.pattern_str, self.items, self.support, self.size, self.error_rate, self.precision, self.recall, self.mode_class)
 
     def __eq__(self, other):
         return (self.idx == other.idx) and (self.pattern_str == other.pattern_str)
