@@ -15,6 +15,17 @@ RUN apt update && \
     conda install -c conda-forge lightgbm && \
     conda install -c conda-forge xgboost && \
     conda install -c conda-forge shap
+#
+#ARG USERNAME=akihiro
+#ARG USER_UID=1000
+#ARG USER_GID=$USER_UID
+#
+#RUN addgroup --gid ${USER_GID} ${USERNAME}
+#RUN adduser --disabled-password --gecos "" --uid ${USER_UID} --gid ${USER_GID} ${USERNAME}
+#RUN chown -R ${USERNAME} /home/${USERNAME}
+#ENV HOME /home/${USERNAME}
+#
+#USER ${USERNAME}
 
 # until this is merged https://github.com/potassco/asprin/pull/3
 # RUN sed -i -e 's/async/async_/g' /opt/conda/lib/python3.7/site-packages/asprin/src/utils/clingo_signal_handler.py
