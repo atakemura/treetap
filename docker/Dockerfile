@@ -27,6 +27,19 @@ RUN apt update && \
 #
 #USER ${USERNAME}
 
+RUN mkdir -p /usr/share/man/man1 && \
+    apt update && \
+    apt install -y openjdk-11-jdk-headless
+
+ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-amd64/
+
+RUN apt install -y build-essential python3-dev && \
+    pip install javabridge && \
+    pip install python-weka-wrapper3 && \
+    pip install liac-arff
+
+#ADD https://prdownloads.sourceforge.net/weka/weka-3-8-4.zip ./
+
 # until this is merged https://github.com/potassco/asprin/pull/3
 # RUN sed -i -e 's/async/async_/g' /opt/conda/lib/python3.7/site-packages/asprin/src/utils/clingo_signal_handler.py
 
