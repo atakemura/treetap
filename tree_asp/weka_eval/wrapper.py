@@ -82,6 +82,136 @@ class WekaJ48:
             return np.array(pred_array)
 
 
+class WekaRIPPER:
+    def __init__(self, num_folds=3, prune=True, no_error_check=False, seed=2020):
+        self.model = None
+        self.num_folds = num_folds
+        self.prune = prune
+        self.no_check_error = no_error_check
+        self.seed = seed
+
+        options = [
+            '-F', str(round(self.num_folds)),
+            '-S', str(self.seed)
+        ]
+        if self.prune:
+            options.append('-P')
+        if self.no_check_error:
+            options.append('-E')
+
+        self.model = Classifier(classname='weka.classifiers.rules.JRip', options=options)
+
+    def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs):
+        train_arff = create_temp_arff(pd.concat([X, y], axis=1), 'train')
+        try:
+            train = load_any_file(train_arff.name, class_index='last')
+            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
+            ntob.inputformat(train)
+            train_filtered = ntob.filter(train)
+            self.model.build_classifier(train_filtered)
+        except:
+            raise
+        finally:
+            os.remove(train_arff.name)
+        return
+
+    def predict(self, X: pd.DataFrame, proba=False, **kwargs):
+        _x_valid = X.copy()
+        _x_valid['label'] = 0
+        valid_arff = create_temp_arff(_x_valid, 'valid')
+        try:
+            valid = load_any_file(valid_arff.name, class_index='last')
+            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
+            ntob.inputformat(valid)
+            valid_filtered = ntob.filter(valid)
+            pred_array = []
+            dist_array = []
+            for idx, inst in enumerate(valid_filtered):
+                pred = self.model.classify_instance(inst)
+                pred_array.append(pred)
+                dist = self.model.distribution_for_instance(inst)
+                dist_array.append(dist)
+        except:
+            raise
+        finally:
+            os.remove(valid_arff.name)
+        if proba:
+            return np.array(dist_array)
+        else:
+            return np.array(pred_array)
+
+
+class WekaPART:
+    def __init__(self, confidence=0.25, min_child_leaf=2, num_folds=3,
+                 reduced_error_pruning = False, unpruned = False, no_mdl = False, binary_splits = False, seed=2020):
+        self.model = None
+        self.confidence = confidence
+        self.min_child_leaf = min_child_leaf
+        self.num_folds = num_folds
+        self.reduced_error_pruning = reduced_error_pruning
+        self.no_mdl = no_mdl
+        self.unpruned = unpruned
+        self.binary_splits = binary_splits
+        self.seed = seed
+
+        options = [
+            '-C', str(self.confidence),
+            '-M', str(round(self.min_child_leaf)),
+            '-N', str(round(self.num_folds)),
+            '-Q', str(seed)
+        ]
+        if self.reduced_error_pruning:
+            options.append('-R')
+        if self.binary_splits:
+            options.append('-B')
+        if self.no_mdl:
+            options.append('-J')
+        if self.unpruned:
+            options.append('-U')
+
+        self.model = Classifier(classname='weka.classifiers.rules.PART', options=options)
+
+    def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs):
+        train_arff = create_temp_arff(pd.concat([X, y], axis=1), 'train')
+        try:
+            train = load_any_file(train_arff.name, class_index='last')
+            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
+            ntob.inputformat(train)
+            train_filtered = ntob.filter(train)
+            self.model.build_classifier(train_filtered)
+        except:
+            raise
+        finally:
+            os.remove(train_arff.name)
+        return
+
+    def predict(self, X: pd.DataFrame, proba=False, **kwargs):
+        _x_valid = X.copy()
+        _x_valid['label'] = 0
+        valid_arff = create_temp_arff(_x_valid, 'valid')
+        try:
+            valid = load_any_file(valid_arff.name, class_index='last')
+            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
+            ntob.inputformat(valid)
+            valid_filtered = ntob.filter(valid)
+            pred_array = []
+            dist_array = []
+            for idx, inst in enumerate(valid_filtered):
+                pred = self.model.classify_instance(inst)
+                pred_array.append(pred)
+                dist = self.model.distribution_for_instance(inst)
+                dist_array.append(dist)
+        except:
+            raise
+        finally:
+            os.remove(valid_arff.name)
+        if proba:
+            return np.array(dist_array)
+        else:
+            return np.array(pred_array)
+
+
+
 def create_temp_arff(df, description=''):
     # check all numeric
     assert all(df.select_dtypes(include=['float', 'int']).columns == df.columns)
@@ -122,8 +252,19 @@ def run_experiment(dataset_name):
         j48.fit(x_train, y_train)
         y_pred = j48.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
-        print('fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        print('j48 fold {} acc {}'.format(f_idx+1, round(acc, 2)))
 
+        ripper = WekaRIPPER()
+        ripper.fit(x_train, y_train)
+        y_pred = ripper.predict(x_valid)
+        acc = accuracy_score(y_valid, y_pred)
+        print('ripper fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+
+        part = WekaPART()
+        part.fit(x_train, y_train)
+        y_pred = part.predict(x_valid)
+        acc = accuracy_score(y_valid, y_pred)
+        print('part fold {} acc {}'.format(f_idx+1, round(acc, 2)))
         # train_arff = create_temp_arff(pd.concat([x_train, y_train], axis=1), 'train')
         # valid_arff = create_temp_arff(pd.concat([x_valid, y_valid], axis=1), 'valid')
         # try:
