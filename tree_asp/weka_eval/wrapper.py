@@ -19,7 +19,7 @@ from tempfile import NamedTemporaryFile
 
 class WekaJ48:
     def __init__(self, confidence=0.25, min_child_leaf=2, num_folds=3,
-                 reduced_error_pruning = False, no_subtree_raising = False, binary_splits = False):
+                 reduced_error_pruning=False, no_subtree_raising=False, binary_splits=False):
         self.model = None
         self.confidence = confidence
         self.min_child_leaf = min_child_leaf
@@ -46,12 +46,13 @@ class WekaJ48:
         train_arff = create_temp_arff(pd.concat([X, y], axis=1), 'train')
         try:
             train = load_any_file(train_arff.name, class_index='last')
-            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
-            ntob.inputformat(train)
-            train_filtered = ntob.filter(train)
+            num2nominal = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal',
+                                 options=['-R', 'last'])
+            num2nominal.inputformat(train)
+            train_filtered = num2nominal.filter(train)
             self.model.build_classifier(train_filtered)
-        except:
-            raise
+        except Exception as e:
+            raise e
         finally:
             os.remove(train_arff.name)
         return
@@ -62,9 +63,10 @@ class WekaJ48:
         valid_arff = create_temp_arff(_x_valid, 'valid')
         try:
             valid = load_any_file(valid_arff.name, class_index='last')
-            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
-            ntob.inputformat(valid)
-            valid_filtered = ntob.filter(valid)
+            num2nominal = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal',
+                                 options=['-R', 'last'])
+            num2nominal.inputformat(valid)
+            valid_filtered = num2nominal.filter(valid)
             pred_array = []
             dist_array = []
             for idx, inst in enumerate(valid_filtered):
@@ -72,8 +74,8 @@ class WekaJ48:
                 pred_array.append(pred)
                 dist = self.model.distribution_for_instance(inst)
                 dist_array.append(dist)
-        except:
-            raise
+        except Exception as e:
+            raise e
         finally:
             os.remove(valid_arff.name)
         if proba:
@@ -105,12 +107,13 @@ class WekaRIPPER:
         train_arff = create_temp_arff(pd.concat([X, y], axis=1), 'train')
         try:
             train = load_any_file(train_arff.name, class_index='last')
-            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
-            ntob.inputformat(train)
-            train_filtered = ntob.filter(train)
+            num2nominal = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal',
+                                 options=['-R', 'last'])
+            num2nominal.inputformat(train)
+            train_filtered = num2nominal.filter(train)
             self.model.build_classifier(train_filtered)
-        except:
-            raise
+        except Exception as e:
+            raise e
         finally:
             os.remove(train_arff.name)
         return
@@ -121,9 +124,10 @@ class WekaRIPPER:
         valid_arff = create_temp_arff(_x_valid, 'valid')
         try:
             valid = load_any_file(valid_arff.name, class_index='last')
-            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
-            ntob.inputformat(valid)
-            valid_filtered = ntob.filter(valid)
+            num2nominal = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal',
+                                 options=['-R', 'last'])
+            num2nominal.inputformat(valid)
+            valid_filtered = num2nominal.filter(valid)
             pred_array = []
             dist_array = []
             for idx, inst in enumerate(valid_filtered):
@@ -131,8 +135,8 @@ class WekaRIPPER:
                 pred_array.append(pred)
                 dist = self.model.distribution_for_instance(inst)
                 dist_array.append(dist)
-        except:
-            raise
+        except Exception as e:
+            raise e
         finally:
             os.remove(valid_arff.name)
         if proba:
@@ -143,7 +147,7 @@ class WekaRIPPER:
 
 class WekaPART:
     def __init__(self, confidence=0.25, min_child_leaf=2, num_folds=3,
-                 reduced_error_pruning = False, unpruned = False, no_mdl = False, binary_splits = False, seed=2020):
+                 reduced_error_pruning=False, unpruned=False, no_mdl=False, binary_splits=False, seed=2020):
         self.model = None
         self.confidence = confidence
         self.min_child_leaf = min_child_leaf
@@ -175,12 +179,13 @@ class WekaPART:
         train_arff = create_temp_arff(pd.concat([X, y], axis=1), 'train')
         try:
             train = load_any_file(train_arff.name, class_index='last')
-            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
-            ntob.inputformat(train)
-            train_filtered = ntob.filter(train)
+            num2nominal = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal',
+                                 options=['-R', 'last'])
+            num2nominal.inputformat(train)
+            train_filtered = num2nominal.filter(train)
             self.model.build_classifier(train_filtered)
-        except:
-            raise
+        except Exception as e:
+            raise e
         finally:
             os.remove(train_arff.name)
         return
@@ -191,9 +196,10 @@ class WekaPART:
         valid_arff = create_temp_arff(_x_valid, 'valid')
         try:
             valid = load_any_file(valid_arff.name, class_index='last')
-            ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
-            ntob.inputformat(valid)
-            valid_filtered = ntob.filter(valid)
+            num2nominal = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal',
+                                 options=['-R', 'last'])
+            num2nominal.inputformat(valid)
+            valid_filtered = num2nominal.filter(valid)
             pred_array = []
             dist_array = []
             for idx, inst in enumerate(valid_filtered):
@@ -201,8 +207,8 @@ class WekaPART:
                 pred_array.append(pred)
                 dist = self.model.distribution_for_instance(inst)
                 dist_array.append(dist)
-        except:
-            raise
+        except Exception as e:
+            raise e
         finally:
             os.remove(valid_arff.name)
         if proba:
@@ -211,10 +217,9 @@ class WekaPART:
             return np.array(pred_array)
 
 
-
 def create_temp_arff(df, description=''):
     # check all numeric
-    assert all(df.select_dtypes(include=['float', 'int']).columns == df.columns)
+    assert len(df.select_dtypes(include=['float', 'int']).columns) == len(df.columns)
     attrs = [(x, 'NUMERIC') for x in df.columns]
     data = list(df.values)
     result = {
@@ -228,9 +233,9 @@ def create_temp_arff(df, description=''):
     try:
         with open(tmp.name, 'w') as fp:
             fp.write(arff_dump)
-    except:
+    except Exception as e:
         os.remove(tmp.name)
-        raise
+        raise e
     return tmp
 
 
@@ -272,11 +277,12 @@ def run_experiment(dataset_name):
         #     valid = load_any_file(valid_arff.name, class_index='last')
         #     print([a.type_str() for a in train.attributes()])
         #
-        #     ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
-        #     ntob.inputformat(train)
+        #     num2nominal = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal',
+        #                          options=['-R', 'last'])
+        #     num2nominal.inputformat(train)
         #
-        #     train_filtered = ntob.filter(train)
-        #     valid_filtered = ntob.filter(valid)
+        #     train_filtered = num2nominal.filter(train)
+        #     valid_filtered = num2nominal.filter(valid)
         #
         #     cls = Classifier(classname='weka.classifiers.trees.J48',
         #                      options=['-C', '0.3']
@@ -333,32 +339,9 @@ def load_data(dataset_name):
 
 if __name__ == '__main__':
     jvm.start()
-    """
-    # data = pd.read_csv('../../datasets/datasets/heart/heart.csv')
-    # x = data[[x for x in data.columns if x != 'label']].values
-    # y = data['label'].values
-    # dataset = create_instances_from_matrices(x, y, name='from matrix')
 
-    dataset = load_any_file('../../datasets/datasets/autism/autism.csv', class_index='last')
-    print(dataset.attribute_names(), dataset.num_instances, dataset.class_attribute)
-    print([a.type_str() for a in dataset.attributes()])
-
-    ntob = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal', options=['-R', 'last'])
-    ntob.inputformat(dataset)
-
-    filtered = ntob.filter(dataset)
-
-    cls = Classifier(classname='weka.classifiers.trees.J48', options=['-U'])
-    cls.build_classifier(filtered)
-    print(cls)
-
-    for idx, inst in enumerate(filtered):
-        pred = cls.classify_instance(inst)
-        dist = cls.distribution_for_instance(inst)
-        # print('{}: label_index={} class_distribution={}'.format(idx,pred,dist))
-    """
-
-    dataset_name = 'autism'
-    run_experiment(dataset_name)
+    for data in ['autism', 'breast', 'cars', 'credit_australia', 'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']:
+        print('='*20, data, '='*20)
+        run_experiment(data)
 
     jvm.stop()
