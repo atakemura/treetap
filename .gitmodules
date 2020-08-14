@@ -1,0 +1,3 @@
+[submodule "tree_asp/mdlp"]
+	path = tree_asp/mdlp
+	url = https://github.com/atakemura/mdlp.git
