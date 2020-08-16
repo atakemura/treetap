@@ -38,6 +38,8 @@ RUN apt install -y build-essential python3-dev && \
     pip install python-weka-wrapper3 && \
     pip install liac-arff
 
+RUN pip install corels
+
 #ADD https://prdownloads.sourceforge.net/weka/weka-3-8-4.zip ./
 
 # until this is merged https://github.com/potassco/asprin/pull/3
