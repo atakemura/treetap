@@ -24,6 +24,7 @@ def ingest_data():
         'census':           census_parser,
         'kdd99':            kdd99_parser,
         'eeg':              eeg_parser,
+        'credit_taiwan':    credit_taiwan_parser,
     }
     base = Path(__file__).parent / 'ingestion'
     for k, v in dataset_parser.items():
@@ -487,8 +488,8 @@ def eeg_parser():
     schema = {
         'id_col': '',
         'categorical_columns': [],
-             'numerical_columns': ['V1','V2','V3','V4','V5','V6','V7',
-                                   'V8','V9','V10','V11','V12','V13', 'V14'],
+        'numerical_columns': ['V1','V2','V3','V4','V5','V6','V7',
+                              'V8','V9','V10','V11','V12','V13', 'V14'],
         'label_column': 'label'
     }
     check_dtypes(schema, df)
@@ -498,6 +499,29 @@ def eeg_parser():
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
     print('dataset: eeg written to {}'.format(out_dir / 'eeg.csv'))
+
+
+def credit_taiwan_parser():
+    df = pd.read_excel(Path(__file__).parent / 'ingestion' / 'credit_taiwan' / 'default of credit card clients.xls',
+                       header=1)
+    # label normalization
+    df.rename({'default payment next month': 'label'}, axis=1, inplace=True)
+    schema = {
+        'id_col': 'ID',
+        'categorical_columns': ['SEX', 'EDUCATION', 'MARRIAGE', 'AGE', 'PAY_0', 'PAY_2',
+                                'PAY_3', 'PAY_4', 'PAY_5', 'PAY_6',],
+        'numerical_columns': ['LIMIT_BAL', 'BILL_AMT1', 'BILL_AMT2', 'BILL_AMT3', 'BILL_AMT4',
+                              'BILL_AMT5', 'BILL_AMT6', 'PAY_AMT1', 'PAY_AMT2', 'PAY_AMT3',
+                              'PAY_AMT4', 'PAY_AMT5', 'PAY_AMT6',],
+        'label_column': 'label'
+    }
+    check_dtypes(schema, df)
+    out_dir = Path(Path(__file__).parent / 'datasets' / 'credit_taiwan')
+    out_dir.mkdir(exist_ok=True)
+    df.to_csv(out_dir / 'credit_taiwan.csv', header=True, index=False)
+    with open(out_dir / 'schema.json', 'w') as out_file:
+        json.dump(schema, out_file, indent=4)
+    print('dataset: credit_taiwan written to {}'.format(out_dir / 'credit_taiwan.csv'))
 
 
 if __name__ == '__main__':
