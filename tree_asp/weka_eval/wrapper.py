@@ -219,8 +219,15 @@ class WekaPART:
 
 def create_temp_arff(df, description=''):
     # check all numeric
-    assert len(df.select_dtypes(include=['float', 'int']).columns) == len(df.columns)
-    attrs = [(x, 'NUMERIC') for x in df.columns]
+    assert len(df.select_dtypes(include=['float', 'int', 'category']).columns) == len(df.columns)
+    # numeric = df.select_dtypes(include=['float', 'int']).columns
+    categorical = df.select_dtypes(include=['category']).columns
+    # numeric_attrs = [(x, 'NUMERIC') for x in numeric]
+    # categorical_attrs = [(col, [str(x) for x in df[col].cat.categories.tolist()]) for col in categorical]
+    attrs = [(col, [str(x) for x in df[col].cat.categories.tolist()])
+             if col in categorical
+             else (col, 'NUMERIC')
+             for col in df.columns]
     data = list(df.values)
     result = {
         'attributes': attrs,
@@ -242,9 +249,9 @@ def create_temp_arff(df, description=''):
 def run_experiment(dataset_name):
     X, y = load_data(dataset_name)
     categorical_features = list(X.columns[X.dtypes == 'category'])
-    if len(categorical_features) > 0:
-        oh = OneHotEncoder(cols=categorical_features, use_cat_names=True)
-        X = oh.fit_transform(X)
+    # if len(categorical_features) > 0:
+    #     oh = OneHotEncoder(cols=categorical_features, use_cat_names=True)
+    #     X = oh.fit_transform(X)
     feat = X.columns
 
     skf = StratifiedKFold(n_splits=5, shuffle=False, random_state=2020)
@@ -308,7 +315,7 @@ def load_data(dataset_name):
     # the following contains a mix of categorical and numerical features.
     datasets = ['autism', 'breast', 'cars',
                 'credit_australia', 'heart', 'ionosphere',
-                'kidney', 'krvskp', 'voting']
+                'kidney', 'krvskp', 'voting', 'census', 'airline', 'kdd99', 'eeg', 'credit_taiwan']
     if dataset_name in sklearn_data.keys():
         load_data_method = sklearn_data[dataset_name]
         data_obj = load_data_method()
@@ -339,8 +346,8 @@ def load_data(dataset_name):
 
 if __name__ == '__main__':
     jvm.start()
-
-    for data in ['autism', 'breast', 'cars', 'credit_australia', 'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']:
+    # for data in ['autism', 'breast', 'cars', 'credit_australia', 'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']:
+    for data in ['breast', 'ionosphere', 'krvskp']:
         print('='*20, data, '='*20)
         run_experiment(data)
 
