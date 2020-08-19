@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
+import optuna
 
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 import json
 from category_encoders.one_hot import OneHotEncoder
 from sklearn.model_selection import StratifiedKFold
@@ -16,6 +18,56 @@ sys.path.append('../mdlp')
 from mdlp.mdlp import MDLPDiscretizer
 
 # note all data must be binary, including features and labels
+
+
+def optuna_pycorels(X, y):
+    early_stopping_dict = {'early_stopping_limit': 10,
+                           'early_stop_count': 0,
+                           'best_score': None}
+
+    def optuna_early_stopping_callback(study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
+        if early_stopping_dict['best_score'] is None:
+            early_stopping_dict['best_score'] = study.best_value
+
+        if study.direction == optuna.study.StudyDirection.MAXIMIZE:
+            if study.best_value > early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        elif study.direction == optuna.study.StudyDirection.MINIMIZE:
+            if study.best_value < early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        else:
+            raise ValueError('Unknown study direction: {}'.format(study.direction))
+        return
+
+    def objective(trial: optuna.Trial):
+        c = trial.suggest_float('c', 0.01, 1.00, step=0.01)
+        # policy = trial.suggest_categorical('policy', ['bfs', 'dfs', 'curious', 'lower_bound', 'objective'])
+        policy = 'lower_bound'
+        ablation = trial.suggest_categorical('ablation', [0, 1, 2])
+        max_card = trial.suggest_int('max_card', 1, 3, step=1)
+        min_support = trial.suggest_float('min_support', 0.01, 0.5, step=0.01)
+        corels = CorelsClassifier(c=c, policy=policy, ablation=ablation, max_card=max_card, min_support=min_support)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020)
+        corels.fit(x_train, y_train, features=list(x_train.columns))
+        y_pred = corels.predict(x_valid)
+        acc = accuracy_score(y_valid, y_pred)
+        return acc
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=100, timeout=120, callbacks=[optuna_early_stopping_callback], n_jobs=1)
+    return study.best_params
 
 
 def run_experiment(dataset_name):
@@ -41,7 +93,8 @@ def run_experiment(dataset_name):
         x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
-        corels = CorelsClassifier(n_iter=10000)
+        corels_best_params = optuna_pycorels(x_train, y_train)
+        corels = CorelsClassifier(**corels_best_params)
         corels.fit(x_train, y_train, features=list(x_train.columns))
         y_pred = corels.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
