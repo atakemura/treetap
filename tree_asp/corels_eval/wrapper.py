@@ -87,7 +87,7 @@ def run_experiment(dataset_name):
     feat = X.columns
     print(X.head(1))
 
-    skf = StratifiedKFold(n_splits=5, shuffle=False, random_state=2020)
+    skf = StratifiedKFold(n_splits=5, shuffle=False)
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
         print('fold={}'.format(f_idx+1))
         x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
