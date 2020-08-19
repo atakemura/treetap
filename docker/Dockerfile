@@ -27,18 +27,22 @@ RUN apt update && \
 #
 #USER ${USERNAME}
 
+# install java
 RUN mkdir -p /usr/share/man/man1 && \
     apt update && \
     apt install -y openjdk-11-jdk-headless
 
 ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-amd64/
 
+# weka dependencies
 RUN apt install -y build-essential python3-dev && \
     pip install javabridge && \
     pip install python-weka-wrapper3 && \
     pip install liac-arff
 
-RUN pip install corels
+# corels dependencies
+RUN apt install -y libgmp-dev && \
+    pip install corels
 
 #ADD https://prdownloads.sourceforge.net/weka/weka-3-8-4.zip ./
 
