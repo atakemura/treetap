@@ -11,6 +11,7 @@ from sklearn.datasets import load_iris, load_wine, load_breast_cancer
 from pathlib import Path
 
 from corels import CorelsClassifier
+from utils import timer_exec
 
 import sys
 sys.path.append('../mdlp')
@@ -24,6 +25,7 @@ def optuna_pycorels(X, y):
     early_stopping_dict = {'early_stopping_limit': 10,
                            'early_stop_count': 0,
                            'best_score': None}
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     def optuna_early_stopping_callback(study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
         if early_stopping_dict['best_score'] is None:
@@ -53,20 +55,24 @@ def optuna_pycorels(X, y):
         return
 
     def objective(trial: optuna.Trial):
-        c = trial.suggest_float('c', 0.01, 1.00, step=0.01)
+        c = trial.suggest_float('c', 0.02, 1.00, step=0.02)
         # policy = trial.suggest_categorical('policy', ['bfs', 'dfs', 'curious', 'lower_bound', 'objective'])
         policy = 'lower_bound'
-        ablation = trial.suggest_categorical('ablation', [0, 1, 2])
-        max_card = trial.suggest_int('max_card', 1, 3, step=1)
-        min_support = trial.suggest_float('min_support', 0.01, 0.5, step=0.01)
-        corels = CorelsClassifier(c=c, policy=policy, ablation=ablation, max_card=max_card, min_support=min_support)
+        # ablation = trial.suggest_categorical('ablation', [0, 1, 2])
+        ablation = 0
+        # max_card = trial.suggest_int('max_card', 1, 3, step=1)
+        max_card = 2
+        min_support = trial.suggest_float('min_support', 0.02, 0.5, step=0.02)
+        verbosity = []
+        corels = CorelsClassifier(c=c, policy=policy, ablation=ablation, max_card=max_card,
+                                  min_support=min_support, verbosity=verbosity)
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020)
         corels.fit(x_train, y_train, features=list(x_train.columns))
         y_pred = corels.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
         return acc
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=100, timeout=120, callbacks=[optuna_early_stopping_callback], n_jobs=1)
+    study.optimize(objective, n_trials=100, timeout=600, callbacks=[optuna_early_stopping_callback], n_jobs=1)
     return study.best_params
 
 
@@ -89,12 +95,12 @@ def run_experiment(dataset_name):
 
     skf = StratifiedKFold(n_splits=5, shuffle=False)
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
-        print('fold={}'.format(f_idx+1))
         x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
-        corels_best_params = optuna_pycorels(x_train, y_train)
-        corels = CorelsClassifier(**corels_best_params)
+        with timer_exec('optuna optimization loop fold {}'.format(f_idx+1)):
+            corels_best_params = optuna_pycorels(x_train, y_train)
+        corels = CorelsClassifier(**corels_best_params, verbosity=[])
         corels.fit(x_train, y_train, features=list(x_train.columns))
         y_pred = corels.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
