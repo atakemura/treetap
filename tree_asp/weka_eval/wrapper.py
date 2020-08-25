@@ -6,7 +6,7 @@ import optuna
 from weka.classifiers import Classifier
 from weka.core.converters import load_any_file
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score, f1_score, recall_score
 import json
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.datasets import load_iris, load_wine, load_breast_cancer
@@ -14,6 +14,7 @@ from pathlib import Path
 import arff
 import os
 from tempfile import NamedTemporaryFile
+from timeit import default_timer as timer
 
 
 class WekaJ48:
@@ -53,10 +54,6 @@ class WekaJ48:
             # train_filtered.class_is_last()
             # self.model.build_classifier(train_filtered)
             self.model.build_classifier(train)
-            pred_array = []
-            for idx, inst in enumerate(train):
-                pred = self.model.classify_instance(inst)
-                pred_array.append(pred)
         except Exception as e:
             raise e
         finally:
@@ -513,33 +510,98 @@ def run_experiment(dataset_name):
     #     X = oh.fit_transform(X)
     feat = X.columns
 
-    skf = StratifiedKFold(n_splits=5, shuffle=False)
+    # multilabel case
+    num_classes = y.nunique()
+    metric_averaging = 'micro' if num_classes > 2 else 'binary'
+
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=2020)
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
         print('fold={}'.format(f_idx+1))
         x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
+        j48_start = timer()
         j48_best_params = optuna_weka_j48(x_train, y_train)
+        j48_optuna_end = timer()
         j48 = WekaJ48(**j48_best_params)
         j48.fit(x_train, y_train)
         y_pred = j48.predict(x_valid)
+        j48_end = timer()
         acc = accuracy_score(y_valid, y_pred)
         print('j48 fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+                           'precision': precision_score(y_valid, y_pred, average=metric_averaging),
+                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
+                           'f1': f1_score(y_valid, y_pred, average=metric_averaging)}
+        j48_dict = {
+            'dataset': dataset_name,
+            'fold': f_idx,
+            'model': 'WekaJ48',
+            'j48.model': str(j48.model),
+            'j48.model.graph': j48.model.graph,
+            'j48.best_params': j48_best_params,
+            'vanilla_metrics': vanilla_metrics,
+            'total_time': j48_end - j48_start,
+            'optuna_time': j48_optuna_end - j48_start,
+            'fit_predict_time': j48_end - j48_optuna_end
+        }
 
+        ripper_start = timer()
         ripper_best_params = optuna_weka_ripper(x_train, y_train)
+        ripper_optuna_end = timer()
         ripper = WekaRIPPER(**ripper_best_params)
         ripper.fit(x_train, y_train)
         y_pred = ripper.predict(x_valid)
+        ripper_end = timer()
         acc = accuracy_score(y_valid, y_pred)
         print('ripper fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+                           'precision': precision_score(y_valid, y_pred, average=metric_averaging),
+                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
+                           'f1': f1_score(y_valid, y_pred, average=metric_averaging)}
+        ripper_dict = {
+            'dataset': dataset_name,
+            'fold': f_idx,
+            'model': 'WekaRIPPER',
+            'ripper.model': str(ripper.model),
+            'ripper.best_params': ripper_best_params,
+            'vanilla_metrics': vanilla_metrics,
+            'total_time': ripper_end - ripper_start,
+            'optuna_time': ripper_optuna_end - ripper_start,
+            'fit_predict_time': ripper_end - ripper_optuna_end
+        }
 
+        part_start = timer()
         part_best_params = optuna_weka_part(x_train, y_train)
+        part_optuna_end = timer()
         part = WekaPART(**part_best_params)
         part.fit(x_train, y_train)
         y_pred = part.predict(x_valid)
+        part_end = timer()
         acc = accuracy_score(y_valid, y_pred)
         print('part fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+                           'precision': precision_score(y_valid, y_pred, average=metric_averaging),
+                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
+                           'f1': f1_score(y_valid, y_pred, average=metric_averaging)}
+        part_dict = {
+            'dataset': dataset_name,
+            'fold': f_idx,
+            'model': 'WekaPART',
+            'part.model': str(part.model),
+            'part.best_params': part_best_params,
+            'vanilla_metrics': vanilla_metrics,
+            'total_time': part_end - part_start,
+            'optuna_time': part_optuna_end - part_start,
+            'fit_predict_time': part_end - part_optuna_end
+        }
 
+        exp_dir = '../tmp/experiment_weka_corels'
+        log_json = os.path.join(exp_dir, 'output.json')
+        with open(log_json, 'a', encoding='utf-8') as out_log_json:
+            out_log_json.write(json.dumps(j48_dict) + '\n')
+            out_log_json.write(json.dumps(ripper_dict) + '\n')
+            out_log_json.write(json.dumps(part_dict) + '\n')
         # train_arff = create_temp_arff(pd.concat([x_train, y_train], axis=1), 'train')
         # valid_arff = create_temp_arff(pd.concat([x_valid, y_valid], axis=1), 'valid')
         # try:
@@ -609,10 +671,14 @@ def load_data(dataset_name):
 
 if __name__ == '__main__':
     jvm.start()
-    # for data in ['autism', 'breast', 'cars', 'credit_australia', 'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']:
-    for data in ['breast', 'ionosphere', 'krvskp']:
+    for data in [
+                 'autism', 'breast', 'cars', 'credit_australia', 'heart',
+                 'ionosphere', 'kidney', 'krvskp', 'voting',
+                 'census', 'airline', 'eeg', 'kdd99', 'credit_taiwan'
+                 ]:
+    # for data in ['breast', 'ionosphere', 'krvskp']:
     # for data in ['ionosphere']:
-        print('='*20, data, '='*20)
+        print('='*40, data, '='*40)
         run_experiment(data)
 
     jvm.stop()
