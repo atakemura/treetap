@@ -10,6 +10,8 @@ RUN apt update && \
     pip install problog && \
     pip install category_encoders && \
     pip install optuna && \
+    # optuna bug https://github.com/optuna/optuna/pull/1599
+    pip install --upgrade packaging && \
     conda install -c potassco clingo && \
     conda install -c potassco asprin && \
     conda install -c conda-forge lightgbm && \
