@@ -23,6 +23,8 @@ def load_data(dataset_name):
     datasets = ['autism', 'breast', 'cars',
                 'credit_australia', 'credit_taiwan', 'heart', 'ionosphere',
                 'kidney', 'krvskp', 'voting',
+                # 50k
+                'eeg',
                 # these datasets are large (>200k), use with caution
                 'census', 'airline', 'kdd99']
     if dataset_name in sklearn_data.keys():
