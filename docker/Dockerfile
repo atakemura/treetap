@@ -46,6 +46,9 @@ RUN apt install -y build-essential python3-dev && \
 RUN apt install -y libgmp-dev && \
     pip install corels
 
+# pyfim
+RUN pip install pyfim
+
 #ADD https://prdownloads.sourceforge.net/weka/weka-3-8-4.zip ./
 
 # until this is merged https://github.com/potassco/asprin/pull/3
