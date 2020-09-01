@@ -795,6 +795,7 @@ class LGBMRuleExtractor:
                     continue
                 # collect conditions and boolean mask
                 else:
+                    # TODO: cache result for better performance
                     if LT_PATTERN in rule_key:
                         _rule_field, _rule_threshold = rule_key.rsplit(LT_PATTERN, 1)
                         _tmp_dfs.append(getattr(X[_rule_field], 'lt')(float(_rule_threshold)))
