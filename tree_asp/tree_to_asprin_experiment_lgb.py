@@ -7,7 +7,7 @@ import subprocess
 
 from sklearn.datasets import load_iris, load_breast_cancer, load_wine
 from sklearn.model_selection import train_test_split, StratifiedKFold
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from itertools import product
 from pathlib import Path
 from tqdm import tqdm
@@ -70,7 +70,8 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     vanilla_metrics = {'accuracy':  accuracy_score(y_valid, lgb_vanilla_pred),
                        'precision': precision_score(y_valid, lgb_vanilla_pred, average=metric_averaging),
                        'recall':    recall_score(y_valid, lgb_vanilla_pred, average=metric_averaging),
-                       'f1':        f1_score(y_valid, lgb_vanilla_pred, average=metric_averaging)}
+                       'f1':        f1_score(y_valid, lgb_vanilla_pred, average=metric_averaging),
+                       'auc':       roc_auc_score(y_valid, lgb_vanilla_pred)}
 
     ext_start = timer()
     lgb_extractor = LGBMRuleExtractor()
@@ -78,7 +79,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     res_str = lgb_extractor.transform(x_train, y_train)
     ext_end = timer()
 
-    exp_dir = './tmp/experiment_lgb'
+    exp_dir = './tmp/experiment_lgb_dev'
 
     tmp_pattern_file = os.path.join(exp_dir, 'pattern_out.txt')
     tmp_class_file = os.path.join(exp_dir, 'n_class.lp')
@@ -137,7 +138,8 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             rule_pred_metrics = {'accuracy': accuracy_score(y_valid, rule_pred),
                                  'precision': precision_score(y_valid, rule_pred, average=metric_averaging),
                                  'recall': recall_score(y_valid, rule_pred, average=metric_averaging),
-                                 'f1': f1_score(y_valid, rule_pred, average=metric_averaging)}
+                                 'f1': f1_score(y_valid, rule_pred, average=metric_averaging),
+                                 'auc': roc_auc_score(y_valid, rule_pred)}
             scores.append((ans_idx, rule_pred_metrics))
 
         out_dict = {
@@ -288,7 +290,8 @@ if __name__ == '__main__':
         n_estimators = [200]  # max boosting rounds if early stopping fails
         max_depths = [8]
         encodings = ['skyline', 'maximal', 'closed']
-        asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
+        # asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
+        asprin_pref = ['pareto_1']
 
     combinations = product(data, n_estimators, max_depths, encodings, asprin_pref)
     for cond_tuple in tqdm(combinations):
