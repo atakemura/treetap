@@ -72,6 +72,7 @@ def parse_clasp_output(output: iter or str,
     FLAG_ANSWER = 'Answer: '
     FLAG_OPT = 'Optimization: '
     FLAG_OPT_FOUND = 'OPTIMUM FOUND'
+    FLAG_OPT_FOUND_ASPRIN = 'OPTIMUM FOUND *'
     FLAG_PROGRESS = 'Progression :'
 
     output = iter(output.splitlines() if isinstance(output, str) else output)
@@ -93,7 +94,7 @@ def parse_clasp_output(output: iter or str,
             yield 'answer', next(output)
         elif line.startswith(FLAG_OPT) and yield_opti:
             yield 'optimization', tuple(map(int, line[len(FLAG_OPT):].strip().split()))
-        elif line.startswith(FLAG_OPT_FOUND) and yield_opti:
+        elif (line.startswith(FLAG_OPT_FOUND) or line.startswith(FLAG_OPT_FOUND_ASPRIN)) and yield_opti:
             yield 'optimum found', True
         elif line.startswith(FLAG_PROGRESS) and yield_prgs:
             yield 'progression', line[len(FLAG_PROGRESS):].strip()
