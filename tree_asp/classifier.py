@@ -15,7 +15,7 @@ class RuleClassifier:
         self.categorical_maps = {}
 
     def fit(self, X=None, y=None, **params):
-        if not self.default_class:
+        if self.default_class is None:
             self.default_class = y.mode()[0]
         categorical_features = list(X.columns[X.dtypes == 'category'])
         if len(categorical_features) > 0:
