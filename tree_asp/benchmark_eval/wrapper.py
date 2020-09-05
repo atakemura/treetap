@@ -317,11 +317,17 @@ def run_experiment(dataset_name):
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
                            'f1': f1_score(y_valid, y_pred, average=metric_averaging),
                            'auc': roc_auc_score(y_valid, y_pred)}
+        rules = rfit.get_rules()
+        rules = rules[rules.coef != 0].sort_values('support', ascending=False)
+        n_rules = rules.shape[0]
+        top_rules = rules.head(20)  # type: pd.DataFrame
         rfit_dict = {
             'dataset': dataset_name,
             'fold': f_idx,
             'model': 'RuleFit',
             # 'rfit.model': str(rfit.model),
+            'rfit.best_20_rules_support': top_rules.to_json(orient='records'),
+            'rfit.n_rules': n_rules,
             'rfit.best_params': rfit_best_params,
             'vanilla_metrics': vanilla_metrics,
             'total_time': rfit_end - rfit_start,
