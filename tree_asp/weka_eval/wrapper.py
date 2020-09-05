@@ -6,7 +6,7 @@ import optuna
 from weka.classifiers import Classifier
 from weka.core.converters import load_any_file
 
-from sklearn.metrics import accuracy_score, precision_score, f1_score, recall_score
+from sklearn.metrics import accuracy_score, precision_score, f1_score, recall_score, roc_auc_score
 import json
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.datasets import load_iris, load_wine, load_breast_cancer
@@ -328,7 +328,7 @@ class WekaPART:
 
 
 def optuna_weka_j48(X, y):
-    early_stopping_dict = {'early_stopping_limit': 10,
+    early_stopping_dict = {'early_stopping_limit': 30,
                            'early_stop_count': 0,
                            'best_score': None}
 
@@ -381,12 +381,12 @@ def optuna_weka_j48(X, y):
         acc = accuracy_score(y_valid, y_pred)
         return acc
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=100, timeout=600, callbacks=[optuna_early_stopping_callback])
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params
 
 
 def optuna_weka_ripper(X, y):
-    early_stopping_dict = {'early_stopping_limit': 10,
+    early_stopping_dict = {'early_stopping_limit': 30,
                            'early_stop_count': 0,
                            'best_score': None}
 
@@ -430,12 +430,12 @@ def optuna_weka_ripper(X, y):
         acc = accuracy_score(y_valid, y_pred)
         return acc
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=100, timeout=600, callbacks=[optuna_early_stopping_callback])
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params
 
 
 def optuna_weka_part(X, y):
-    early_stopping_dict = {'early_stopping_limit': 10,
+    early_stopping_dict = {'early_stopping_limit': 30,
                            'early_stop_count': 0,
                            'best_score': None}
 
@@ -498,7 +498,7 @@ def optuna_weka_part(X, y):
         acc = accuracy_score(y_valid, y_pred)
         return acc
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=100, timeout=600, callbacks=[optuna_early_stopping_callback])
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params
 
 
@@ -532,7 +532,8 @@ def run_experiment(dataset_name):
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                           'f1': f1_score(y_valid, y_pred, average=metric_averaging)}
+                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
+                           'auc': roc_auc_score(y_valid, y_pred)}
         j48_dict = {
             'dataset': dataset_name,
             'fold': f_idx,
@@ -558,7 +559,8 @@ def run_experiment(dataset_name):
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                           'f1': f1_score(y_valid, y_pred, average=metric_averaging)}
+                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
+                           'auc': roc_auc_score(y_valid, y_pred)}
         ripper_dict = {
             'dataset': dataset_name,
             'fold': f_idx,
@@ -583,7 +585,8 @@ def run_experiment(dataset_name):
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                           'f1': f1_score(y_valid, y_pred, average=metric_averaging)}
+                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
+                           'auc': roc_auc_score(y_valid, y_pred)}
         part_dict = {
             'dataset': dataset_name,
             'fold': f_idx,
@@ -596,7 +599,7 @@ def run_experiment(dataset_name):
             'fit_predict_time': part_end - part_optuna_end
         }
 
-        exp_dir = '../tmp/experiment_weka_corels'
+        exp_dir = '../tmp/experiment_weka'
         log_json = os.path.join(exp_dir, 'output.json')
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
             out_log_json.write(json.dumps(j48_dict) + '\n')
@@ -640,7 +643,8 @@ def load_data(dataset_name):
     # the following contains a mix of categorical and numerical features.
     datasets = ['autism', 'breast', 'cars',
                 'credit_australia', 'heart', 'ionosphere',
-                'kidney', 'krvskp', 'voting', 'census', 'airline', 'kdd99', 'eeg', 'credit_taiwan']
+                'kidney', 'krvskp', 'voting', 'census', 'airline',
+                'kdd99', 'eeg', 'credit_taiwan']
     if dataset_name in sklearn_data.keys():
         load_data_method = sklearn_data[dataset_name]
         data_obj = load_data_method()
@@ -674,10 +678,12 @@ if __name__ == '__main__':
     for data in [
                  'autism', 'breast', 'cars', 'credit_australia', 'heart',
                  'ionosphere', 'kidney', 'krvskp', 'voting',
-                 'census', 'airline', 'eeg', 'kdd99', 'credit_taiwan'
+                 'census',
+                 # 'airline',
+                 'eeg',
+                 # 'kdd99',
+                 'credit_taiwan'
                  ]:
-    # for data in ['breast', 'ionosphere', 'krvskp']:
-    # for data in ['ionosphere']:
         print('='*40, data, '='*40)
         run_experiment(data)
 
