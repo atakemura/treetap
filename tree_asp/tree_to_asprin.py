@@ -11,7 +11,7 @@ import sys
 
 from clasp_parser import generate_answers
 from answers import AnswerSet, ClaspInfo
-from pattern import Pattern, Item
+from rule import Rule, Literal
 
 
 if __name__ == '__main__':
@@ -80,11 +80,11 @@ if __name__ == '__main__':
             if ans[0] != 'selected':
                 print('Unsupported answer string, skipping: {}'.format(ans[0]))
             pat_idx = ans[-1][0]
-            pat = rf_extractor.patterns_[pat_idx]  # type: Pattern
+            pat = rf_extractor.rules_[pat_idx]  # type: Rule
             print('-'*10)
             print('pattern_idx: item_idx')
             print('{}: {}'.format(pat.idx, pat.items))
-            print('class {} if {}'.format(pat.mode_class, pat.pattern_str))
+            print('class {} if {}'.format(pat.mode_class, pat.rule_str))
             print('error_rate: {}'.format(pat.error_rate))
             print('size: {}'.format(pat.size))
             print('support: {}'.format(pat.support))

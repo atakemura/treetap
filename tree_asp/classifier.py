@@ -3,13 +3,13 @@ import numpy as np
 from typing import List
 import dask.dataframe as dd
 
-from pattern import Pattern
+from rule import Rule
 from rule_extractor import LT_PATTERN, LE_PATTERN, GT_PATTERN,\
     GE_PATTERN, EQ_PATTERN, NEQ_PATTERN
 
 
 class RuleClassifier:
-    def __init__(self, patterns: List[Pattern], default_class: int=None):
+    def __init__(self, patterns: List[Rule], default_class: int=None):
         self.rules = self.sort_rules(patterns)
         self.default_class = default_class
         self.categorical_maps = {}
@@ -34,7 +34,7 @@ class RuleClassifier:
         assert X.shape[0] == predicted_.shape[0]
         return predicted_
 
-    def sort_rules(self, patterns: List[Pattern]):
+    def sort_rules(self, patterns: List[Rule]):
         # sort based on error rate, length and class label
         sorted_list = sorted(patterns, key=lambda x: (x.error_rate, x.size, x.mode_class))
         return sorted_list
@@ -44,7 +44,7 @@ class RuleClassifier:
         for pattern in self.rules:
             items = [False] * pattern.size
             for item_idx, item in enumerate(pattern.items):
-                item_str = item.item_str
+                item_str = item.literal_str
                 item_active = False
                 if LT_PATTERN in item_str:
                     _rule_field, _rule_threshold = item_str.rsplit(LT_PATTERN, 1)

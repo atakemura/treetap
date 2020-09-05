@@ -37,7 +37,7 @@ if __name__ == '__main__':
             for m in model:
                 # this filter may be unnecessary, depending on the #show setting
                 if m.name == 'selected':
-                    selected_ptn = [p for p in a.patterns_ if p.idx == m.arguments[0].number][0]
+                    selected_ptn = [p for p in a.rules_ if p.idx == m.arguments[0].number][0]
                     print(selected_ptn)
 
     # TODO: CV for best depth and n_estimators
@@ -72,5 +72,5 @@ if __name__ == '__main__':
                 print(ans_idx)
                 for m in model:
                     if m.name == 'selected':
-                        selected_ptn = [p for p in a.patterns_ if p.idx == m.arguments[0].number][0]
+                        selected_ptn = [p for p in a.rules_ if p.idx == m.arguments[0].number][0]
                         print(selected_ptn)

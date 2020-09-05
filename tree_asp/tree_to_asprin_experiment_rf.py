@@ -17,7 +17,7 @@ from copy import deepcopy
 from rule_extractor import RFRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
-from pattern import Pattern
+from rule import Rule
 
 
 def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref):
@@ -114,7 +114,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             rules = []
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
-                pat = rf_extractor.patterns_[pat_idx]  # type: Pattern
+                pat = rf_extractor.rules_[pat_idx]  # type: Rule
                 rules.append(pat)
             # break
             rule_classifier = RuleClassifier(rules)
@@ -141,8 +141,8 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             'clasp_time': clasp_info.stats['Time'],
             'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # rf related
-            'rf_n_nodes': len(rf_extractor.items_),
-            'rf_n_patterns': len(rf_extractor.patterns_),
+            'rf_n_nodes': len(rf_extractor.literals_),
+            'rf_n_patterns': len(rf_extractor.rules_),
             # timer
             'py_total_time': end - start,
             'py_rf_time': rf_end - rf_start,
@@ -170,8 +170,8 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             # 'clasp_time': clasp_info.stats['Time'],
             # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # rf related
-            'rf_n_nodes': len(rf_extractor.items_),
-            'rf_n_patterns': len(rf_extractor.patterns_),
+            'rf_n_nodes': len(rf_extractor.literals_),
+            'rf_n_patterns': len(rf_extractor.rules_),
             # timer
             'py_total_time': end - start,
             'py_rf_time': rf_end - rf_start,
@@ -198,11 +198,11 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                 continue
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
-                pat = rf_extractor.patterns_[pat_idx]  # type: Pattern
+                pat = rf_extractor.rules_[pat_idx]  # type: Rule
                 pat_dict = {
                     'pattern_idx': pat.idx,
-                    'items': [x.item_str for x in pat.items],
-                    'rule_str': 'class {} if {}'.format(pat.mode_class, pat.pattern_str),
+                    'items': [x.literal_str for x in pat.items],
+                    'rule_str': 'class {} if {}'.format(pat.mode_class, pat.rule_str),
                     'mode_class': int(pat.mode_class),
                     'error_rate': int(pat.error_rate),
                     'size': int(pat.size),

@@ -17,7 +17,7 @@ from copy import deepcopy
 from rule_extractor import DTRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
-from pattern import Pattern
+from rule import Rule
 
 
 def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref):
@@ -117,7 +117,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             rules = []
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
-                pat = dt_extractor.patterns_[pat_idx]  # type: Pattern
+                pat = dt_extractor.rules_[pat_idx]  # type: Rule
                 rules.append(pat)
             # break
             rule_classifier = RuleClassifier(rules)
@@ -144,8 +144,8 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             'clasp_time': clasp_info.stats['Time'],
             'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # dt related
-            'dt_n_nodes': len(dt_extractor.items_),
-            'dt_n_patterns': len(dt_extractor.patterns_),
+            'dt_n_nodes': len(dt_extractor.literals_),
+            'dt_n_patterns': len(dt_extractor.rules_),
             # timer
             'py_total_time': end - start,
             'py_dt_time': dt_end - dt_start,
@@ -173,8 +173,8 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             # 'clasp_time': clasp_info.stats['Time'],
             # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # dt related
-            'dt_n_nodes': len(dt_extractor.items_),
-            'dt_n_patterns': len(dt_extractor.patterns_),
+            'dt_n_nodes': len(dt_extractor.literals_),
+            'dt_n_patterns': len(dt_extractor.rules_),
             # timer
             'py_total_time': end - start,
             'py_dt_time': dt_end - dt_start,
@@ -201,11 +201,11 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                 continue
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
-                pat = dt_extractor.patterns_[pat_idx]  # type: Pattern
+                pat = dt_extractor.rules_[pat_idx]  # type: Rule
                 pat_dict = {
                     'pattern_idx': pat.idx,
-                    'items': [x.item_str for x in pat.items],
-                    'rule_str': 'class {} if {}'.format(pat.mode_class, pat.pattern_str),
+                    'items': [x.literal_str for x in pat.items],
+                    'rule_str': 'class {} if {}'.format(pat.mode_class, pat.rule_str),
                     'mode_class': int(pat.mode_class),
                     'error_rate': int(pat.error_rate),
                     'size': int(pat.size),

@@ -13,7 +13,7 @@ from multiprocessing import Pool
 from os import cpu_count
 from operator import and_
 
-from pattern import Pattern, Item
+from rule import Rule, Literal
 from utils import timer_exec
 
 LT_PATTERN = ' < '
@@ -29,11 +29,14 @@ class DTRuleExtractor:
         self.feature_names = None
         self.verbose = verbose
         self.non_rule_keys = ['class', 'condition_length', 'error_rate',
-                              'frequency', 'frequency_am', 'mode_class', 'value']
+                              'precision', 'recall', 'f1_score',
+                              'frequency', 'frequency_am', 'mode_class', 'value',
+                              'is_tree_max', 'accuracy']
         self.asp_fact_str = None
         self.fitted_ = False
-        self.patterns_ = None
-        self.items_ = None
+        self.rules_ = None
+        self.literals_ = None
+        self.metric_averaging = None
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         # validate the input model
@@ -42,6 +45,9 @@ class DTRuleExtractor:
         if not isinstance(model, DecisionTreeClassifier):
             raise ValueError('only DecisionTreeClassifier is supported at the moment.')
         check_is_fitted(model, 'tree_')
+
+        num_classes = y.nunique()
+        self.metric_averaging = 'micro' if num_classes > 2 else 'binary'
 
         # decision tree only has 1 tree
         rules = {}
@@ -195,12 +201,17 @@ class DTRuleExtractor:
                 mask_res = reduce(and_, _tmp_dfs)
                 # these depend on the entire training data, not on the bootstrapped data that the original rf uses
                 # path_rule['mode_class'] = y[mask_res].mode()[0]
-                path_rule['mode_class'] = 0
+                path_rule['mode_class'] = y[mask_res].mode()[0]
+                y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
-                path_rule['frequency'] = len(y[mask_res])
-                path_rule['error_rate'] = 1 - accuracy_score(y[mask_res],
-                                                             [path_rule['mode_class'] for _ in range(len(y[mask_res]))])
+                path_rule['frequency'] = len(y[mask_res])  # coverage
+                path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
+                path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
+                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                                                         average=self.metric_averaging)
+                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                                                   average=self.metric_averaging)
 
         return rules
 
@@ -215,82 +226,90 @@ class DTRuleExtractor:
         Returns:
             list of dicts
         """
-        non_rule_keys = ['class', 'condition_length', 'error_rate', 'frequency', 'frequency_am', 'mode_class', 'value']
-        pattern_list = []
-        item_list = []
+        rule_list = []
+        literal_list = []
         print_dicts = []
 
-        # pattern and item instances
-        ptn_obj_list = []
-        itm_obj_list = []
+        # rule and literal instances
+        rl_obj_list = []
+        lit_obj_list = []
 
         for t_idx, t in rules.items():
             for node_idx, node_rule in t.items():
-                # pattern
-                ptn = ' /\\ '.join([k for k in node_rule.keys() if k not in non_rule_keys])
+                # rule
+                rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
 
-                if ptn in pattern_list:
-                    ptn_idx = pattern_list.index(ptn)
+                if rule_txt in rule_list:
+                    rule_idx = rule_list.index(rule_txt)
                     # add support
                     for p in print_dicts:
-                        if p['pattern_idx'] == ptn_idx:
+                        if p['rule_idx'] == rule_idx:
                             p['support'] += node_rule['frequency']
                     continue
                 else:
-                    pattern_list.append(ptn)
-                    ptn_idx = len(pattern_list) - 1
-                # items
-                _list_items = []
+                    rule_list.append(rule_txt)
+                    rule_idx = len(rule_list) - 1
+                # literals
+                _list_literals = []
                 for k in node_rule.keys():
-                    if k not in non_rule_keys:
-                        if k in item_list:
-                            itm_idx = item_list.index(k)
+                    if k not in self.non_rule_keys:
+                        if k in literal_list:
+                            lit_idx = literal_list.index(k)
                         else:
-                            item_list.append(k)
-                            itm_idx = len(item_list) - 1
-                            itm_obj_list.append(Item(itm_idx, k))
-                        _list_items.append((ptn_idx, itm_idx))
+                            literal_list.append(k)
+                            lit_idx = len(literal_list) - 1
+                            lit_obj_list.append(Literal(lit_idx, k))
+                        _list_literals.append((rule_idx, lit_idx))
                 if self.verbose:
-                    print('pattern_id {} class={}: {}'.format(ptn_idx, node_rule['mode_class'], ptn))
-                    print('items: {}'.format(['item{}'.format(x) for x in _list_items]))
+                    print('rule_idx: {} class={}: {}'.format(rule_idx, node_rule['mode_class'], rule_txt))
+                    print('literals: {}'.format(['literal{}'.format(x) for x in _list_literals]))
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
 
                 # create new dict
                 prn = {
-                    'pattern_idx': ptn_idx,
-                    'pattern': ptn,
-                    'items': [x for x in _list_items],
+                    'rule_idx': rule_idx,
+                    'rule': rule_txt,
+                    'literals': [x for x in _list_literals],
                     'support': node_rule['frequency'],
-                    'size': len(_list_items),
+                    'size': len(_list_literals),
                     'error_rate': node_rule['error_rate'],
+                    'accuracy': node_rule['accuracy'],
+                    'precision': node_rule['precision'],
+                    'recall': node_rule['recall'],
                     'mode_class': node_rule['mode_class']
                 }
                 print_dicts.append(prn)
-                ptn_obj_list.append(Pattern(idx=ptn_idx,
-                                            pattern_str=ptn,
-                                            items=[Item(itm_idx_k, item_list[itm_idx_k])
-                                                   for (_, itm_idx_k) in _list_items],
-                                            support=node_rule['frequency'],
-                                            size=len(_list_items),
-                                            error_rate=int(round(node_rule['error_rate']*100)),
-                                            mode_class=node_rule['mode_class']))
-        self.patterns_ = ptn_obj_list
-        self.items_ = itm_obj_list
+                rl_obj_list.append(Rule(idx=rule_idx,
+                                         rule_str=rule_txt,
+                                         literals=[Literal(itm_idx_k, literal_list[itm_idx_k])
+                                                   for (_, itm_idx_k) in _list_literals],
+                                         support=node_rule['frequency'],
+                                         size=len(_list_literals),
+                                         error_rate=int(round(node_rule['error_rate']*100)),
+                                         accuracy=int(round(node_rule['accuracy'] * 100)),
+                                         precision=int(round(node_rule['precision'] * 100)),
+                                         recall=int(round(node_rule['recall'] * 100)),
+                                         mode_class=node_rule['mode_class']))
+        self.rules_ = rl_obj_list
+        self.literals_ = lit_obj_list
         return print_dicts
 
     def asp_str_from_dicts(self, list_dicts: list):
         print_lines = []
-        for pattern_dict in list_dicts:
+        for rule_dict in list_dicts:
             prn = []
-            ptn_idx = pattern_dict['pattern_idx']
-            prn.append('pattern({}).'.format(ptn_idx))
-            for x in pattern_dict['items']:
-                prn.append('item({},{}).'.format(x[0], x[1]))
-            prn.append('support({},{}).'.format(ptn_idx, pattern_dict['support']))
-            prn.append('size({},{}).'.format(ptn_idx, pattern_dict['size']))
-            prn.append('error_rate({},{}).'.format(ptn_idx, int(round(pattern_dict['error_rate'] * 100))))
-            prn.append('mode_class({},{}).'.format(ptn_idx, pattern_dict['mode_class']))
+            rule_idx = rule_dict['rule_idx']
+            prn.append('rule({}).'.format(rule_idx))
+            for x in rule_dict['literals']:
+                prn.append('literal({},{}).'.format(x[0], x[1]))
+            prn.append('support({},{}).'.format(rule_idx, rule_dict['support']))
+            prn.append('size({},{}).'.format(rule_idx, rule_dict['size']))
+            prn.append('accuracy({},{}).'.format(rule_idx, int(round(rule_dict['accuracy'] * 100))))
+            prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
+            prn.append('precision({},{}).'.format(rule_idx, int(round(rule_dict['precision'] * 100))))
+            prn.append('recall({},{}).'.format(rule_idx, int(round(rule_dict['recall'] * 100))))
+            prn.append('mode_class({},{}).'.format(rule_idx, rule_dict['mode_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)
         return return_str
@@ -301,11 +320,14 @@ class RFRuleExtractor:
         self.feature_names = None
         self.verbose = verbose
         self.non_rule_keys = ['class', 'condition_length', 'error_rate',
-                              'frequency', 'frequency_am', 'mode_class', 'value']
+                              'precision', 'recall', 'f1_score',
+                              'frequency', 'frequency_am', 'mode_class', 'value',
+                              'is_tree_max', 'accuracy']
         self.asp_fact_str = None
         self.fitted_ = False
-        self.patterns_ = None
-        self.items_ = None
+        self.rules_ = None
+        self.literals_ = None
+        self.metric_averaging = None
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         # validate the input model
@@ -314,6 +336,9 @@ class RFRuleExtractor:
         if not isinstance(model, RandomForestClassifier):
             raise ValueError('only RandomForestClassifier is supported at the moment.')
         check_is_fitted(model, 'estimators_')
+
+        num_classes = y.nunique()
+        self.metric_averaging = 'micro' if num_classes > 2 else 'binary'
 
         # extract rules for all trees
         rules = {}
@@ -468,11 +493,16 @@ class RFRuleExtractor:
                 mask_res = reduce(and_, _tmp_dfs)
                 # these depend on the entire training data, not on the bootstrapped data that the original rf uses
                 path_rule['mode_class'] = y[mask_res].mode()[0]
+                y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
-                path_rule['frequency'] = len(y[mask_res])
-                path_rule['error_rate'] = 1 - accuracy_score(y[mask_res],
-                                                             [path_rule['mode_class'] for _ in range(len(y[mask_res]))])
+                path_rule['frequency'] = len(y[mask_res])  # coverage
+                path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
+                path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
+                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                                                         average=self.metric_averaging)
+                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                                                   average=self.metric_averaging)
 
         return rules
 
@@ -487,82 +517,88 @@ class RFRuleExtractor:
         Returns:
             list of dicts
         """
-        non_rule_keys = ['class', 'condition_length', 'error_rate', 'frequency', 'frequency_am', 'mode_class', 'value']
-        pattern_list = []
-        item_list = []
+        rule_list = []
+        literal_list = []
         print_dicts = []
 
         # pattern and item instances
-        ptn_obj_list = []
-        itm_obj_list = []
+        rl_obj_list = []
+        lit_obj_list = []
 
         for t_idx, t in rules.items():
             for node_idx, node_rule in t.items():
-                # pattern
-                ptn = ' /\\ '.join([k for k in node_rule.keys() if k not in non_rule_keys])
+                # rule
+                rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
 
-                if ptn in pattern_list:
-                    ptn_idx = pattern_list.index(ptn)
+                if rule_txt in rule_list:
+                    rule_idx = rule_list.index(rule_txt)
                     # add support
                     for p in print_dicts:
-                        if p['pattern_idx'] == ptn_idx:
+                        # TODO: rethink this, maybe not add the support again
+                        if p['rule_idx'] == rule_idx:
                             p['support'] += node_rule['frequency']
                     continue
                 else:
-                    pattern_list.append(ptn)
-                    ptn_idx = len(pattern_list) - 1
-                # items
-                _list_items = []
+                    rule_list.append(rule_txt)
+                    rule_idx = len(rule_list) - 1
+                # literals
+                _list_literals = []
                 for k in node_rule.keys():
-                    if k not in non_rule_keys:
-                        if k in item_list:
-                            itm_idx = item_list.index(k)
+                    if k not in self.non_rule_keys:
+                        if k in literal_list:
+                            lit_idx = literal_list.index(k)
                         else:
-                            item_list.append(k)
-                            itm_idx = len(item_list) - 1
-                            itm_obj_list.append(Item(itm_idx, k))
-                        _list_items.append((ptn_idx, itm_idx))
+                            literal_list.append(k)
+                            lit_idx = len(literal_list) - 1
+                            lit_obj_list.append(Literal(lit_idx, k))
+                        _list_literals.append((rule_idx, lit_idx))
                 if self.verbose:
-                    print('pattern_id {} class={}: {}'.format(ptn_idx, node_rule['mode_class'], ptn))
-                    print('items: {}'.format(['item{}'.format(x) for x in _list_items]))
+                    print('rule_idx: {} class={}: {}'.format(rule_idx, node_rule['mode_class'], rule_txt))
+                    print('literals: {}'.format(['literal{}'.format(x) for x in _list_literals]))
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
 
                 # create new dict
                 prn = {
-                    'pattern_idx': ptn_idx,
-                    'pattern': ptn,
-                    'items': [x for x in _list_items],
+                    'rule_idx': rule_idx,
+                    'rule': rule_txt,
+                    'literals': [x for x in _list_literals],
                     'support': node_rule['frequency'],
-                    'size': len(_list_items),
+                    'size': len(_list_literals),
                     'error_rate': node_rule['error_rate'],
+                    'accuracy': node_rule['accuracy'],
+                    'precision': node_rule['precision'],
+                    'recall': node_rule['recall'],
                     'mode_class': node_rule['mode_class']
                 }
                 print_dicts.append(prn)
-                ptn_obj_list.append(Pattern(idx=ptn_idx,
-                                            pattern_str=ptn,
-                                            items=[Item(itm_idx_k, item_list[itm_idx_k])
-                                                   for (_, itm_idx_k) in _list_items],
-                                            support=node_rule['frequency'],
-                                            size=len(_list_items),
-                                            error_rate=int(round(node_rule['error_rate']*100)),
-                                            mode_class=node_rule['mode_class']))
-        self.patterns_ = ptn_obj_list
-        self.items_ = itm_obj_list
+                rl_obj_list.append(Rule(idx=rule_idx,
+                                         rule_str=rule_txt,
+                                         literals=[Literal(itm_idx_k, literal_list[itm_idx_k])
+                                                   for (_, itm_idx_k) in _list_literals],
+                                         support=node_rule['frequency'],
+                                         size=len(_list_literals),
+                                         error_rate=int(round(node_rule['error_rate']*100)),
+                                         accuracy=int(round(node_rule['accuracy'] * 100)),
+                                         precision=int(round(node_rule['precision'] * 100)),
+                                         recall=int(round(node_rule['recall'] * 100)),
+                                         mode_class=node_rule['mode_class']))
+        self.rules_ = rl_obj_list
+        self.literals_ = lit_obj_list
         return print_dicts
 
     def asp_str_from_dicts(self, list_dicts: list):
         print_lines = []
-        for pattern_dict in list_dicts:
+        for rule_dict in list_dicts:
             prn = []
-            ptn_idx = pattern_dict['pattern_idx']
-            prn.append('pattern({}).'.format(ptn_idx))
-            for x in pattern_dict['items']:
-                prn.append('item({},{}).'.format(x[0], x[1]))
-            prn.append('support({},{}).'.format(ptn_idx, pattern_dict['support']))
-            prn.append('size({},{}).'.format(ptn_idx, pattern_dict['size']))
-            prn.append('error_rate({},{}).'.format(ptn_idx, int(round(pattern_dict['error_rate'] * 100))))
-            prn.append('mode_class({},{}).'.format(ptn_idx, pattern_dict['mode_class']))
+            ptn_idx = rule_dict['rule_idx']
+            prn.append('rule({}).'.format(ptn_idx))
+            for x in rule_dict['literals']:
+                prn.append('literal({},{}).'.format(x[0], x[1]))
+            prn.append('support({},{}).'.format(ptn_idx, rule_dict['support']))
+            prn.append('size({},{}).'.format(ptn_idx, rule_dict['size']))
+            prn.append('error_rate({},{}).'.format(ptn_idx, int(round(rule_dict['error_rate'] * 100))))
+            prn.append('mode_class({},{}).'.format(ptn_idx, rule_dict['mode_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)
         return return_str
@@ -651,8 +687,8 @@ class LGBMRuleExtractor:
                               'is_tree_max', 'accuracy']
         self.asp_fact_str = None
         self.fitted_ = False
-        self.patterns_ = None
-        self.items_ = None
+        self.rules_ = None
+        self.literals_ = None
         self.num_tree_per_iteration = None
         self.metric_averaging = None
 
@@ -869,7 +905,6 @@ class LGBMRuleExtractor:
 
     def export_text_rule_lgb(self, tree_rules, X, y):
         rules = tree_rules
-        from pprint import pprint
         # adding rule statistics
         for t_idx, t_rules in rules.items():
             for path_rule in t_rules.values():
@@ -916,6 +951,7 @@ class LGBMRuleExtractor:
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
                 path_rule['frequency'] = len(y[mask_res])  # coverage
                 path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
+                path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
                 path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
                                                          average=self.metric_averaging)
                 path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
@@ -936,14 +972,13 @@ class LGBMRuleExtractor:
         Returns:
             list of dicts
         """
-        # non_rule_keys = ['class', 'condition_length', 'error_rate', 'frequency', 'frequency_am', 'mode_class', 'value']
-        pattern_list = []
-        item_list = []
+        rule_list = []
+        literal_list = []
         print_dicts = []
 
         # pattern and item instances
-        ptn_obj_list = []
-        itm_obj_list = []
+        rl_obj_list = []
+        lit_obj_list = []
 
         for t_idx, t in rules.items():
             for node_idx, node_rule in t.items():
@@ -951,42 +986,43 @@ class LGBMRuleExtractor:
                     continue  # skip non_max case
 
                 # pattern
-                ptn = ' /\\ '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
+                rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
 
-                if ptn in pattern_list:
-                    ptn_idx = pattern_list.index(ptn)
+                if rule_txt in rule_list:
+                    rule_idx = rule_list.index(rule_txt)
                     # add support
                     for p in print_dicts:
-                        if p['pattern_idx'] == ptn_idx:
+                        # TODO: do not accumulate
+                        if p['rule_idx'] == rule_idx:
                             p['support'] += node_rule['frequency']
                     continue
                 else:
-                    pattern_list.append(ptn)
-                    ptn_idx = len(pattern_list) - 1
+                    rule_list.append(rule_txt)
+                    rule_idx = len(rule_list) - 1
                 # items
-                _list_items = []
+                _list_literals = []
                 for k in node_rule.keys():
                     if k not in self.non_rule_keys:
-                        if k in item_list:
-                            itm_idx = item_list.index(k)
+                        if k in literal_list:
+                            lit_idx = literal_list.index(k)
                         else:
-                            item_list.append(k)
-                            itm_idx = len(item_list) - 1
-                            itm_obj_list.append(Item(itm_idx, k))
-                        _list_items.append((ptn_idx, itm_idx))
+                            literal_list.append(k)
+                            lit_idx = len(literal_list) - 1
+                            lit_obj_list.append(Literal(lit_idx, k))
+                        _list_literals.append((rule_idx, lit_idx))
                 if self.verbose:
-                    print('pattern_id {} class={}: {}'.format(ptn_idx, node_rule['mode_class'], ptn))
-                    print('items: {}'.format(['item{}'.format(x) for x in _list_items]))
+                    print('rule_id {} class={}: {}'.format(rule_idx, node_rule['mode_class'], rule_txt))
+                    print('literals: {}'.format(['literal{}'.format(x) for x in _list_literals]))
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
 
                 # create new dict
                 prn = {
-                    'pattern_idx': ptn_idx,
-                    'pattern': ptn,
-                    'items': [x for x in _list_items],
+                    'rule_idx': rule_idx,
+                    'rule': rule_txt,
+                    'literals': [x for x in _list_literals],
                     'support': node_rule['frequency'],
-                    'size': len(_list_items),
+                    'size': len(_list_literals),
                     'error_rate': node_rule['error_rate'],
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
@@ -994,36 +1030,36 @@ class LGBMRuleExtractor:
                     'mode_class': node_rule['mode_class']
                 }
                 print_dicts.append(prn)
-                ptn_obj_list.append(Pattern(idx=ptn_idx,
-                                            pattern_str=ptn,
-                                            items=[Item(itm_idx_k, item_list[itm_idx_k])
-                                                   for (_, itm_idx_k) in _list_items],
-                                            support=node_rule['frequency'],
-                                            size=len(_list_items),
-                                            accuracy=int(round(node_rule['accuracy'] * 100)),
-                                            error_rate=int(round(node_rule['error_rate'] * 100)),
-                                            precision=int(round(node_rule['precision'] * 100)),
-                                            recall=int(round(node_rule['recall'] * 100)),
-                                            mode_class=node_rule['mode_class']))
-        self.patterns_ = ptn_obj_list
-        self.items_ = itm_obj_list
+                rl_obj_list.append(Rule(idx=rule_idx,
+                                         rule_str=rule_txt,
+                                         literals=[Literal(itm_idx_k, literal_list[itm_idx_k])
+                                                   for (_, itm_idx_k) in _list_literals],
+                                         support=node_rule['frequency'],
+                                         size=len(_list_literals),
+                                         accuracy=int(round(node_rule['accuracy'] * 100)),
+                                         error_rate=int(round(node_rule['error_rate'] * 100)),
+                                         precision=int(round(node_rule['precision'] * 100)),
+                                         recall=int(round(node_rule['recall'] * 100)),
+                                         mode_class=node_rule['mode_class']))
+        self.rules_ = rl_obj_list
+        self.literals_ = lit_obj_list
         return print_dicts
 
     def asp_str_from_dicts(self, list_dicts: list):
         print_lines = []
-        for pattern_dict in list_dicts:
+        for rule_dict in list_dicts:
             prn = []
-            ptn_idx = pattern_dict['pattern_idx']
-            prn.append('pattern({}).'.format(ptn_idx))
-            for x in pattern_dict['items']:
-                prn.append('item({},{}).'.format(x[0], x[1]))
-            prn.append('support({},{}).'.format(ptn_idx, pattern_dict['support']))
-            prn.append('size({},{}).'.format(ptn_idx, pattern_dict['size']))
-            prn.append('accuracy({},{}).'.format(ptn_idx, int(round(pattern_dict['accuracy'] * 100))))
-            prn.append('error_rate({},{}).'.format(ptn_idx, int(round(pattern_dict['error_rate'] * 100))))
-            prn.append('precision({},{}).'.format(ptn_idx, int(round(pattern_dict['precision'] * 100))))
-            prn.append('recall({},{}).'.format(ptn_idx, int(round(pattern_dict['recall'] * 100))))
-            prn.append('mode_class({},{}).'.format(ptn_idx, pattern_dict['mode_class']))
+            rule_idx = rule_dict['rule_idx']
+            prn.append('rule({}).'.format(rule_idx))
+            for x in rule_dict['literals']:
+                prn.append('literal({},{}).'.format(x[0], x[1]))
+            prn.append('support({},{}).'.format(rule_idx, rule_dict['support']))
+            prn.append('size({},{}).'.format(rule_idx, rule_dict['size']))
+            prn.append('accuracy({},{}).'.format(rule_idx, int(round(rule_dict['accuracy'] * 100))))
+            prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
+            prn.append('precision({},{}).'.format(rule_idx, int(round(rule_dict['precision'] * 100))))
+            prn.append('recall({},{}).'.format(rule_idx, int(round(rule_dict['recall'] * 100))))
+            prn.append('mode_class({},{}).'.format(rule_idx, rule_dict['mode_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)
         return return_str

@@ -18,7 +18,7 @@ from copy import deepcopy
 from rule_extractor import LGBMRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
-from pattern import Pattern
+from rule import Rule
 
 
 SEED = 2020
@@ -368,7 +368,7 @@ def run_one_round(dataset_name, encoding,
             rules = []
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
-                pat = lgb_extractor.patterns_[pat_idx]  # type: Pattern
+                pat = lgb_extractor.rules_[pat_idx]  # type: Rule
                 rules.append(pat)
             # break
             rule_classifier = RuleClassifier(rules)
@@ -399,8 +399,8 @@ def run_one_round(dataset_name, encoding,
             'clasp_time': clasp_info.stats['Time'],
             'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # rf related
-            'lgb_n_nodes': len(lgb_extractor.items_),
-            'lgb_n_patterns': len(lgb_extractor.patterns_),
+            'lgb_n_nodes': len(lgb_extractor.literals_),
+            'lgb_n_patterns': len(lgb_extractor.rules_),
             'hyperparams': hyperparams,
             # timer
             'py_total_time': end - start,
@@ -431,8 +431,8 @@ def run_one_round(dataset_name, encoding,
             # 'clasp_time': clasp_info.stats['Time'],
             # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # lgb related
-            'lgb_n_nodes': len(lgb_extractor.items_),
-            'lgb_n_patterns': len(lgb_extractor.patterns_),
+            'lgb_n_nodes': len(lgb_extractor.literals_),
+            'lgb_n_patterns': len(lgb_extractor.rules_),
             'hyperparams': hyperparams,
             # timer
             'py_total_time': end - start,
@@ -461,11 +461,11 @@ def run_one_round(dataset_name, encoding,
                 continue
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
-                pat = lgb_extractor.patterns_[pat_idx]  # type: Pattern
+                pat = lgb_extractor.rules_[pat_idx]  # type: Rule
                 pat_dict = {
                     'pattern_idx': pat.idx,
-                    'items': [x.item_str for x in pat.items],
-                    'rule_str': 'class {} if {}'.format(pat.mode_class, pat.pattern_str),
+                    'items': [x.literal_str for x in pat.items],
+                    'rule_str': 'class {} if {}'.format(pat.mode_class, pat.rule_str),
                     'mode_class': int(pat.mode_class),
                     'error_rate': int(pat.error_rate),
                     'size': int(pat.size),
