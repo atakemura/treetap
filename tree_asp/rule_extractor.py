@@ -194,7 +194,8 @@ class DTRuleExtractor:
                 # reduce boolean mask
                 mask_res = reduce(and_, _tmp_dfs)
                 # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-                path_rule['mode_class'] = y[mask_res].mode()[0]
+                # path_rule['mode_class'] = y[mask_res].mode()[0]
+                path_rule['mode_class'] = 0
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
                 path_rule['frequency'] = len(y[mask_res])
@@ -647,7 +648,7 @@ class LGBMRuleExtractor:
         self.non_rule_keys = ['class', 'condition_length', 'error_rate',
                               'precision', 'recall', 'f1_score',
                               'frequency', 'frequency_am', 'mode_class', 'value',
-                              'is_tree_max']
+                              'is_tree_max', 'accuracy']
         self.asp_fact_str = None
         self.fitted_ = False
         self.patterns_ = None
@@ -764,7 +765,10 @@ class LGBMRuleExtractor:
                 rule_dict[rule_str] = 1
             else:  # at leaf
                 # class_name is determined by the tree index, as there are n_class trees in one round
-                class_name = tree.tree_index % self.num_tree_per_iteration
+                if self.num_tree_per_iteration > 1:
+                    class_name = tree.tree_index % self.num_tree_per_iteration
+                else:
+                    class_name = 1
                 rule_dict['class'] = class_name
                 rule_dict['value'] = int(tree.node_sample_weight[node])  # number of supporting examples
                 if node == leaf_max:
@@ -826,18 +830,38 @@ class LGBMRuleExtractor:
             # reduce boolean mask
             mask_res = reduce(and_, _tmp_dfs)
             # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-            path_rule['mode_class'] = y[mask_res].mode()[0]
-            y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
+            # path_rule['mode_class'] = y[mask_res].mode()[0]
+            # y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
+            # path_rule['condition_length'] = len(_tmp_dfs)
+            # path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
+            # path_rule['frequency'] = len(y[mask_res])
+            # path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
+            # path_rule['precision'] = precision_score(y[mask_res], y_pred,
+            #                                         #  pos_label=path_rule['mode_class'],
+            #                                          average=self.metric_averaging,
+            #                                          zero_division=0)
+            # path_rule['recall'] = recall_score(y[mask_res], y_pred,
+            #                                 #    pos_label=path_rule['mode_class'],
+            #                                    average=self.metric_averaging,
+            #                                    zero_division=0)
+            # do not subset by mask, use whole dataset
+            if y.nunique() != 2:
+                raise RuntimeError('only binary classification is supported at this moment')
+            path_rule['mode_class'] = 1
+            y_pred = np.zeros(y.shape)
+            y_pred[mask_res] = 1
+            # y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
             path_rule['condition_length'] = len(_tmp_dfs)
             path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
             path_rule['frequency'] = len(y[mask_res])
-            path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
-            path_rule['precision'] = precision_score(y[mask_res], y_pred, 
-                                                    #  pos_label=path_rule['mode_class'],
+            path_rule['error_rate'] = 1 - accuracy_score(y, y_pred)
+            path_rule['accuracy'] = accuracy_score(y, y_pred)
+            path_rule['precision'] = precision_score(y, y_pred,
+                                                     #  pos_label=path_rule['mode_class'],
                                                      average=self.metric_averaging,
                                                      zero_division=0)
-            path_rule['recall'] = recall_score(y[mask_res], y_pred,
-                                            #    pos_label=path_rule['mode_class'],
+            path_rule['recall'] = recall_score(y, y_pred,
+                                               #    pos_label=path_rule['mode_class'],
                                                average=self.metric_averaging,
                                                zero_division=0)
 
@@ -890,10 +914,14 @@ class LGBMRuleExtractor:
                 y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
-                path_rule['frequency'] = len(y[mask_res])
+                path_rule['frequency'] = len(y[mask_res])  # coverage
                 path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
-                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'], average=self.metric_averaging)
-                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'], average=self.metric_averaging)
+                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                                                         average=self.metric_averaging)
+                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                                                   average=self.metric_averaging)
+                if y.nunique() != 2:
+                    raise RuntimeError('only binary classification is supported at this moment')
 
         return rules
 
@@ -960,6 +988,7 @@ class LGBMRuleExtractor:
                     'support': node_rule['frequency'],
                     'size': len(_list_items),
                     'error_rate': node_rule['error_rate'],
+                    'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
                     'recall': node_rule['recall'],
                     'mode_class': node_rule['mode_class']
@@ -971,6 +1000,7 @@ class LGBMRuleExtractor:
                                                    for (_, itm_idx_k) in _list_items],
                                             support=node_rule['frequency'],
                                             size=len(_list_items),
+                                            accuracy=int(round(node_rule['accuracy'] * 100)),
                                             error_rate=int(round(node_rule['error_rate'] * 100)),
                                             precision=int(round(node_rule['precision'] * 100)),
                                             recall=int(round(node_rule['recall'] * 100)),
@@ -989,6 +1019,7 @@ class LGBMRuleExtractor:
                 prn.append('item({},{}).'.format(x[0], x[1]))
             prn.append('support({},{}).'.format(ptn_idx, pattern_dict['support']))
             prn.append('size({},{}).'.format(ptn_idx, pattern_dict['size']))
+            prn.append('accuracy({},{}).'.format(ptn_idx, int(round(pattern_dict['accuracy'] * 100))))
             prn.append('error_rate({},{}).'.format(ptn_idx, int(round(pattern_dict['error_rate'] * 100))))
             prn.append('precision({},{}).'.format(ptn_idx, int(round(pattern_dict['precision'] * 100))))
             prn.append('recall({},{}).'.format(ptn_idx, int(round(pattern_dict['recall'] * 100))))
