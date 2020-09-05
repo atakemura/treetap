@@ -17,17 +17,6 @@ RUN apt update && \
     conda install -c conda-forge lightgbm && \
     conda install -c conda-forge xgboost && \
     conda install -c conda-forge shap
-#
-#ARG USERNAME=akihiro
-#ARG USER_UID=1000
-#ARG USER_GID=$USER_UID
-#
-#RUN addgroup --gid ${USER_GID} ${USERNAME}
-#RUN adduser --disabled-password --gecos "" --uid ${USER_UID} --gid ${USER_GID} ${USERNAME}
-#RUN chown -R ${USERNAME} /home/${USERNAME}
-#ENV HOME /home/${USERNAME}
-#
-#USER ${USERNAME}
 
 # install java
 RUN mkdir -p /usr/share/man/man1 && \
@@ -48,6 +37,20 @@ RUN apt install -y libgmp-dev && \
 
 # pyfim
 RUN pip install pyfim
+
+# rulefit
+RUN pip install git+git://github.com/atakemura/rulefit.git@fix-pandas-error
+#
+#ARG USERNAME=akihiro
+#ARG USER_UID=1000
+#ARG USER_GID=$USER_UID
+#
+#RUN addgroup --gid ${USER_GID} ${USERNAME}
+#RUN adduser --disabled-password --gecos "" --uid ${USER_UID} --gid ${USER_GID} ${USERNAME}
+#RUN chown -R ${USERNAME} /home/${USERNAME}
+#ENV HOME /home/${USERNAME}
+#
+#USER ${USERNAME}
 
 #ADD https://prdownloads.sourceforge.net/weka/weka-3-8-4.zip ./
 
