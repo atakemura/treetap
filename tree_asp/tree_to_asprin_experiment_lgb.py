@@ -4,12 +4,11 @@ import os
 import pandas as pd
 import numpy as np
 import subprocess
+import optuna
 
-from sklearn.datasets import load_iris, load_breast_cancer, load_wine
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from itertools import product
-from pathlib import Path
 from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
@@ -18,25 +17,96 @@ from rule_extractor import LGBMRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from pattern import Pattern
+from utils import load_data
 
 
-def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref):
+SEED = 2020
+
+
+def run_experiment(dataset_name, encoding):
     X, y = load_data(dataset_name)
     categorical_features = list(X.columns[X.dtypes == 'category'])
     feat = X.columns
 
-    skf = StratifiedKFold(n_splits=5, shuffle=False, random_state=2020)
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
+
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
-        run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
+        run_one_round(dataset_name, encoding,
                       train_idx, valid_idx, X, y, feat, fold=f_idx)
 
 
-def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
+def optuna_lgb(X, y, static_params):
+    early_stopping_dict = {'early_stopping_limit': 30,
+                           'early_stop_count': 0,
+                           'best_score': None}
+    # optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+    def optuna_early_stopping_callback(study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
+        if early_stopping_dict['best_score'] is None:
+            early_stopping_dict['best_score'] = study.best_value
+
+        if study.direction == optuna.study.StudyDirection.MAXIMIZE:
+            if study.best_value > early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        elif study.direction == optuna.study.StudyDirection.MINIMIZE:
+            if study.best_value < early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        else:
+            raise ValueError('Unknown study direction: {}'.format(study.direction))
+        return
+
+    def objective(trial: optuna.Trial):
+        params = {'learning_rate': trial.suggest_loguniform('learning_rate', 0.01, 0.5),
+                  'max_depth': trial.suggest_int('max_depth', 1, 30),
+                  'num_leaves': trial.suggest_int('num_leaves', 2, 100),
+                  'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 1000),
+                  'feature_fraction': trial.suggest_uniform('feature_fraction', 0.1, 1.0),
+                  'subsample': trial.suggest_uniform('subsample', 0.1, 1.0)}
+        all_params = {**params, **static_params}
+
+        pruning_callback = optuna.integration.LightGBMPruningCallback(trial, all_params['metric'], valid_name='valid')
+        num_boost_round = 1000
+        early_stopping = 30
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=SEED)
+        train_data = lgb.Dataset(x_train, label=y_train)
+        valid_data = lgb.Dataset(x_valid, label=y_valid, reference=train_data)
+
+        model = lgb.train(all_params, train_data,
+                          num_boost_round=num_boost_round,
+                          early_stopping_rounds=early_stopping,
+                          valid_sets=[valid_data],
+                          valid_names=['valid'],
+                          callbacks=[pruning_callback],
+                          verbose_eval=False)
+        if static_params['num_classes'] > 1:
+            score = model.best_score['valid']['multi_logloss']
+        else:
+            score = model.best_score['valid']['binary_logloss']
+        return score
+    study = optuna.create_study(direction='minimize', pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
+    study.optimize(objective, n_trials=100, timeout=600, callbacks=[optuna_early_stopping_callback], n_jobs=1)
+    return study.best_params
+
+
+def run_one_round(dataset_name, encoding,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
-    print('[lgb]', dataset_name, n_estimators, max_depth, encoding, asprin_pref, fold)
+    experiment_tag = 'lgb_{}_{}_{}'.format(dataset_name, encoding, fold)
+    print('=' * 30, experiment_tag, '=' * 30)
     start = timer()
 
-    SEED = 42
 
     x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
     x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
@@ -46,27 +116,34 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     metric_averaging = 'micro' if num_classes > 2 else 'binary'
 
     lgb_start = timer()
-    # train/validation set
-    x_tr, x_val, y_tr, y_val = train_test_split(x_train, y_train,
-                                                stratify=y_train,
-                                                train_size=0.8,
-                                                random_state=SEED)
-
+    print('lgb-training start')
     # using native api
-    lgb_train = lgb.Dataset(data=x_tr,
-                            label=y_tr)
-    lgb_valid = lgb.Dataset(data=x_val,
-                            label=y_val,
+    lgb_train = lgb.Dataset(data=x_train,
+                            label=y_train)
+    lgb_valid = lgb.Dataset(data=x_valid,
+                            label=y_valid,
                             reference=lgb_train)
 
-    params = {'objective': 'multiclass', 'metric': 'multi_logloss', 'num_classes': num_classes, 'verbosity': -1}
-    model = lgb.train(params=params,
+    static_params = {
+        'objective': 'multiclass' if num_classes > 2 else 'binary',
+        'metric': 'multi_logloss' if num_classes > 2 else 'binary_logloss',
+        'num_classes': num_classes if num_classes > 2 else 1,
+        'verbosity': -1
+    }
+    best_params = optuna_lgb(x_train, y_train, static_params)
+    hyperparams = {**static_params, **best_params}
+    model = lgb.train(params=hyperparams,
                       train_set=lgb_train,
                       valid_sets=[lgb_valid],
-                      valid_names=['valid'], early_stopping_rounds=10, verbose_eval=False)
+                      valid_names=['valid'], num_boost_round=1000, early_stopping_rounds=50, verbose_eval=False)
     lgb_end = timer()
+    print('lgb-training completed {} seconds | {} from start'.format(round(lgb_end - lgb_start),
+                                                                     round(lgb_end - start)))
 
-    lgb_vanilla_pred = np.argmax(model.predict(x_valid), axis=1)
+    if num_classes > 2:
+        lgb_vanilla_pred = np.argmax(model.predict(x_valid), axis=1)
+    else:
+        lgb_vanilla_pred = (model.predict(x_valid) > 0.5).astype(int)
     vanilla_metrics = {'accuracy':  accuracy_score(y_valid, lgb_vanilla_pred),
                        'precision': precision_score(y_valid, lgb_vanilla_pred, average=metric_averaging),
                        'recall':    recall_score(y_valid, lgb_vanilla_pred, average=metric_averaging),
@@ -74,42 +151,59 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                        'auc':       roc_auc_score(y_valid, lgb_vanilla_pred)}
 
     ext_start = timer()
+    print('rule extraction start')
     lgb_extractor = LGBMRuleExtractor()
     lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
     res_str = lgb_extractor.transform(x_train, y_train)
     ext_end = timer()
+    print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
+                                                                        round(ext_end - start)))
 
     exp_dir = './tmp/experiment_lgb_dev'
 
-    tmp_pattern_file = os.path.join(exp_dir, 'pattern_out.txt')
-    tmp_class_file = os.path.join(exp_dir, 'n_class.lp')
+    tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
+    tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
         outfile.write(res_str)
 
     with open(tmp_class_file, 'w', encoding='utf-8') as outfile:
-        outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
+        # outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
+        outfile.write('class(1).')
 
     asprin_pareto_1   = './asp_encoding/asprin_pareto_1.lp'
     asprin_pareto_2   = './asp_encoding/asprin_pareto_2.lp'
     asprin_lexico     = './asp_encoding/asprin_lexico.lp'
+    asprin_pareto     = './asp_encoding/asprin_pareto.lp'
     asprin_skyline    = './asp_encoding/skyline.lp'
+    asprin_skyline    = './asp_encoding/asprin_skyline_new.lp'
     asprin_maximal    = './asp_encoding/maximal.lp'
     asprin_closed     = './asp_encoding/closed.lp'
 
-    asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal, 'closed': asprin_closed}
-    asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2, 'lexico': asprin_lexico}
+    clingo_test       = './asp_encoding/maximal_noclass.lp'
+    general_rule_test = './asp_encoding/rule_selection.lp'
+
+    asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal,
+                  'closed': asprin_closed, 'general_rule': general_rule_test}
+    asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2,
+                         'lexico': asprin_lexico, 'pareto_test': asprin_pareto}
 
     asprin_start = timer()
+    print('asprin start')
     try:
-        o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
-                            tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8'
-                            ], capture_output=True, timeout=120)
+        # o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
+        #                     tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=16'
+        #                     ], capture_output=True, timeout=3600)
+        o = subprocess.run(['asprin', asprin_skyline, #asprin_pareto_1,
+                            tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8,split'
+                            ], capture_output=True, timeout=600)
         asprin_completed = True
     except subprocess.TimeoutExpired:
         o = None
         asprin_completed = False
     asprin_end = timer()
+    print('asprin completed {} seconds | {} from start'.format(round(asprin_end - asprin_start),
+                                                               round(asprin_end - start)))
 
     if asprin_completed:
         answers, clasp_info = generate_answers(o.stdout.decode())
@@ -121,7 +215,9 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     log_json = os.path.join(exp_dir, 'output.json')
     log_json_quali = os.path.join(exp_dir, 'output_quali.json')
 
-    if asprin_completed:
+    if asprin_completed and clasp_info is not None:
+        py_rule_start = timer()
+        print('py rule evaluation start')
         scores = []
         for ans_idx, ans_set in enumerate(answers):
             if not ans_set.is_optimal:
@@ -132,7 +228,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                 pat = lgb_extractor.patterns_[pat_idx]  # type: Pattern
                 rules.append(pat)
             # break
-            rule_classifier = RuleClassifier(rules)
+            rule_classifier = RuleClassifier(rules, default_class=0)
             rule_classifier.fit(x_train, y_train)
             rule_pred = rule_classifier.predict(x_valid)
             rule_pred_metrics = {'accuracy': accuracy_score(y_valid, rule_pred),
@@ -141,30 +237,35 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                                  'f1': f1_score(y_valid, rule_pred, average=metric_averaging),
                                  'auc': roc_auc_score(y_valid, rule_pred)}
             scores.append((ans_idx, rule_pred_metrics))
+        py_rule_end = timer()
+        print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
+                                                                               round(py_rule_end - start)))
 
         out_dict = {
             # experiment
             'dataset': dataset_name,
+            'num_class': num_classes,
             'best_iteration': model.best_iteration,
             'n_estimators': model.num_trees(),
-            'max_depth': max_depth,
+            'max_depth': hyperparams['max_depth'],
             'encoding': encoding,
-            'asprin_preference': asprin_pref,
             'asprin_completed': asprin_completed,
             # clasp
             'models': clasp_info.stats['Models'],
             'optimum': True if clasp_info.stats['Optimum'] == 'yes' else False,
-            'optimal': int(clasp_info.stats['Optimal']),
+            # 'optimal': int(clasp_info.stats['Optimal']),
             'clasp_time': clasp_info.stats['Time'],
             'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # rf related
             'lgb_n_nodes': len(lgb_extractor.items_),
             'lgb_n_patterns': len(lgb_extractor.patterns_),
+            'hyperparams': hyperparams,
             # timer
             'py_total_time': end - start,
             'py_lgb_time': lgb_end - lgb_start,
             'py_ext_time': ext_end - ext_start,
             'py_asprin_time': asprin_end - asprin_start,
+            'py_rule_time': py_rule_end - py_rule_start,
             # metrics
             'fold': fold,
             'vanilla_metrics': vanilla_metrics,
@@ -175,11 +276,11 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
         out_dict = {
             # experiment
             'dataset': dataset_name,
+            'num_class': num_classes,
             'best_iteration': model.best_iteration,
             'n_estimators': model.num_trees(),
-            'max_depth': max_depth,
+            'max_depth': hyperparams['max_depth'],
             'encoding': encoding,
-            'asprin_preference': asprin_pref,
             'asprin_completed': asprin_completed,
             # # clasp
             # 'models': int(clasp_info.stats['Models']),
@@ -190,11 +291,13 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             # lgb related
             'lgb_n_nodes': len(lgb_extractor.items_),
             'lgb_n_patterns': len(lgb_extractor.patterns_),
+            'hyperparams': hyperparams,
             # timer
             'py_total_time': end - start,
             'py_lgb_time': lgb_end - lgb_start,
             'py_ext_time': ext_end - ext_start,
             'py_asprin_time': asprin_end - asprin_start,
+            'py_rule_time': 0,
             # metrics
             'fold': fold,
             'vanilla_metrics': vanilla_metrics,
@@ -205,7 +308,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
 
     # this is for qualitative answer pattern only
     verbose = True
-
+    out_quali_start = timer()
     out_quali = deepcopy(out_dict)
     out_quali['rules'] = []
     if asprin_completed:
@@ -228,48 +331,15 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                 }
                 _tmp_rules.append(pat_dict)
             out_quali['rules'].append((ans_idx, _tmp_rules))
-
+    out_quali_end = timer()
+    print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
+                                                            round(out_quali_end - start)))
 
     if verbose:
         with open(log_json_quali, 'a', encoding='utf-8') as out_log_quali:
             out_log_quali.write(json.dumps(out_quali)+'\n')
 
-
-def load_data(dataset_name):
-    # there is no categorical feature in these sklearn datasets.
-    sklearn_data = {'iris': load_iris,
-                    'breast_sk': load_breast_cancer,
-                    'wine': load_wine}
-    # the following contains a mix of categorical and numerical features.
-    datasets = ['autism', 'breast', 'cars',
-                'credit_australia', 'heart', 'ionosphere',
-                'kidney', 'krvskp', 'voting']
-    if dataset_name in sklearn_data.keys():
-        load_data_method = sklearn_data[dataset_name]
-        data_obj = load_data_method()
-        feat = data_obj['feature_names']
-        data = data_obj['data']
-        target = data_obj['target']
-
-        df = pd.DataFrame(data, columns=feat).assign(target=target)
-        X, y = df[feat], df['target']
-        dataset = (X, y)
-    elif dataset_name in datasets:
-        dataset_dir = Path('../datasets/datasets/') / dataset_name
-
-        raw = pd.read_csv(Path(dataset_dir / dataset_name).with_suffix('.csv'))
-        with open(dataset_dir / 'schema.json', 'r') as infile:
-            schema = json.load(infile)
-        for c in schema['categorical_columns']:
-            raw.loc[:, c] = raw.loc[:, c].astype('category')
-        raw_x = raw[[c for c in raw.columns if c != schema['label_column']]].copy()
-        if schema['id_col'] != "":
-            raw_x.drop(schema['id_col'], axis=1, inplace=True)
-        raw_y = raw[schema['label_column']]
-        dataset = (raw_x, raw_y)
-    else:
-        raise ValueError('unrecognized dataset name: {}'.format(dataset_name))
-    return dataset
+    print('completed {} from start'.format(round(timer() - start)))
 
 
 if __name__ == '__main__':
@@ -278,9 +348,14 @@ if __name__ == '__main__':
     debug_mode = True
 
     if debug_mode:
-        data = ['breast_sk', 'wine']
-        n_estimators = [200]  # max boosting rounds if early stopping fails
-        max_depths = [8]
+        # data = ['breast_sk', 'wine']  # ignore these
+        data = [#'breast_sk', #'iris', 'wine',
+                # 'autism', 'breast', 'cars', 'credit_australia',
+                # 'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
+                'credit_australia',
+                # 'eeg', 'census', 'kdd99', 'airline'
+                # 'airline'
+        ]
         encodings = ['skyline']
         asprin_pref = ['pareto_1']
     else:
@@ -293,7 +368,7 @@ if __name__ == '__main__':
         # asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
         asprin_pref = ['pareto_1']
 
-    combinations = product(data, n_estimators, max_depths, encodings, asprin_pref)
+    combinations = product(data, encodings)
     for cond_tuple in tqdm(combinations):
         run_experiment(*cond_tuple)
     end_time = timer()
