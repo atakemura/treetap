@@ -241,10 +241,11 @@ class DTRuleExtractor:
 
                 if rule_txt in rule_list:
                     rule_idx = rule_list.index(rule_txt)
-                    # add support
-                    for p in print_dicts:
-                        if p['rule_idx'] == rule_idx:
-                            p['support'] += node_rule['frequency']
+                    # # add support
+                    # # TODO: do not accumulate
+                    # for p in print_dicts:
+                    #     if p['rule_idx'] == rule_idx:
+                    #         p['support'] += node_rule['frequency']
                     continue
                 else:
                     rule_list.append(rule_txt)
@@ -271,7 +272,7 @@ class DTRuleExtractor:
                     'rule_idx': rule_idx,
                     'rule': rule_txt,
                     'literals': [x for x in _list_literals],
-                    'support': node_rule['frequency'],
+                    'support': node_rule['frequency_am'],
                     'size': len(_list_literals),
                     'error_rate': node_rule['error_rate'],
                     'accuracy': node_rule['accuracy'],
@@ -284,7 +285,7 @@ class DTRuleExtractor:
                                          rule_str=rule_txt,
                                          literals=[Literal(itm_idx_k, literal_list[itm_idx_k])
                                                    for (_, itm_idx_k) in _list_literals],
-                                         support=node_rule['frequency'],
+                                         support=int(round(node_rule['frequency'] * 100)),
                                          size=len(_list_literals),
                                          error_rate=int(round(node_rule['error_rate']*100)),
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
@@ -303,7 +304,7 @@ class DTRuleExtractor:
             prn.append('rule({}).'.format(rule_idx))
             for x in rule_dict['literals']:
                 prn.append('literal({},{}).'.format(x[0], x[1]))
-            prn.append('support({},{}).'.format(rule_idx, rule_dict['support']))
+            prn.append('support({},{}).'.format(rule_idx, int(round(rule_dict['support'] * 100))))
             prn.append('size({},{}).'.format(rule_idx, rule_dict['size']))
             prn.append('accuracy({},{}).'.format(rule_idx, int(round(rule_dict['accuracy'] * 100))))
             prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
@@ -532,11 +533,11 @@ class RFRuleExtractor:
 
                 if rule_txt in rule_list:
                     rule_idx = rule_list.index(rule_txt)
-                    # add support
-                    for p in print_dicts:
-                        # TODO: rethink this, maybe not add the support again
-                        if p['rule_idx'] == rule_idx:
-                            p['support'] += node_rule['frequency']
+                    # # add support
+                    # for p in print_dicts:
+                    #     # TODO: rethink this, maybe not add the support again
+                    #     if p['rule_idx'] == rule_idx:
+                    #         p['support'] += node_rule['frequency']
                     continue
                 else:
                     rule_list.append(rule_txt)
@@ -563,7 +564,7 @@ class RFRuleExtractor:
                     'rule_idx': rule_idx,
                     'rule': rule_txt,
                     'literals': [x for x in _list_literals],
-                    'support': node_rule['frequency'],
+                    'support': node_rule['frequency_am'],
                     'size': len(_list_literals),
                     'error_rate': node_rule['error_rate'],
                     'accuracy': node_rule['accuracy'],
@@ -576,7 +577,7 @@ class RFRuleExtractor:
                                          rule_str=rule_txt,
                                          literals=[Literal(itm_idx_k, literal_list[itm_idx_k])
                                                    for (_, itm_idx_k) in _list_literals],
-                                         support=node_rule['frequency'],
+                                         support=int(round(node_rule['frequency_am']*100)),
                                          size=len(_list_literals),
                                          error_rate=int(round(node_rule['error_rate']*100)),
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
@@ -595,8 +596,11 @@ class RFRuleExtractor:
             prn.append('rule({}).'.format(ptn_idx))
             for x in rule_dict['literals']:
                 prn.append('literal({},{}).'.format(x[0], x[1]))
-            prn.append('support({},{}).'.format(ptn_idx, rule_dict['support']))
+            prn.append('support({},{}).'.format(ptn_idx, int(round(rule_dict['support'] * 100))))
             prn.append('size({},{}).'.format(ptn_idx, rule_dict['size']))
+            prn.append('accuracy({},{}).'.format(ptn_idx, int(round(rule_dict['accuracy'] * 100))))
+            prn.append('precision({},{}).'.format(ptn_idx, int(round(rule_dict['precision'] * 100))))
+            prn.append('recall({},{}).'.format(ptn_idx, int(round(rule_dict['recall'] * 100))))
             prn.append('error_rate({},{}).'.format(ptn_idx, int(round(rule_dict['error_rate'] * 100))))
             prn.append('predict_class({},{}).'.format(ptn_idx, rule_dict['predict_class']))
             print_lines.append(' '.join(prn))
@@ -983,19 +987,19 @@ class LGBMRuleExtractor:
 
         for t_idx, t in rules.items():
             for node_idx, node_rule in t.items():
-                if not node_rule['is_tree_max']:
-                    continue  # skip non_max case
+                # if not node_rule['is_tree_max']:
+                #     continue  # skip non_max case
 
                 # pattern
                 rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
 
                 if rule_txt in rule_list:
-                    rule_idx = rule_list.index(rule_txt)
-                    # add support
-                    for p in print_dicts:
-                        # TODO: do not accumulate
-                        if p['rule_idx'] == rule_idx:
-                            p['support'] += node_rule['frequency']
+                    # rule_idx = rule_list.index(rule_txt)
+                    # # add support
+                    # for p in print_dicts:
+                    #     # TODO: do not accumulate
+                    #     if p['rule_idx'] == rule_idx:
+                    #         p['support'] += node_rule['frequency']
                     continue
                 else:
                     rule_list.append(rule_txt)
@@ -1022,7 +1026,7 @@ class LGBMRuleExtractor:
                     'rule_idx': rule_idx,
                     'rule': rule_txt,
                     'literals': [x for x in _list_literals],
-                    'support': node_rule['frequency'],
+                    'support': node_rule['frequency_am'],
                     'size': len(_list_literals),
                     'error_rate': node_rule['error_rate'],
                     'accuracy': node_rule['accuracy'],
@@ -1035,7 +1039,7 @@ class LGBMRuleExtractor:
                                          rule_str=rule_txt,
                                          literals=[Literal(itm_idx_k, literal_list[itm_idx_k])
                                                    for (_, itm_idx_k) in _list_literals],
-                                         support=node_rule['frequency'],
+                                         support=int(round(node_rule['frequency_am'] * 100)),
                                          size=len(_list_literals),
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
                                          error_rate=int(round(node_rule['error_rate'] * 100)),
@@ -1054,7 +1058,7 @@ class LGBMRuleExtractor:
             prn.append('rule({}).'.format(rule_idx))
             for x in rule_dict['literals']:
                 prn.append('literal({},{}).'.format(x[0], x[1]))
-            prn.append('support({},{}).'.format(rule_idx, rule_dict['support']))
+            prn.append('support({},{}).'.format(rule_idx, int(round(rule_dict['support'] * 100))))
             prn.append('size({},{}).'.format(rule_idx, rule_dict['size']))
             prn.append('accuracy({},{}).'.format(rule_idx, int(round(rule_dict['accuracy'] * 100))))
             prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
