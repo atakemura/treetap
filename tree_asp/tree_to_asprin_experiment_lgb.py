@@ -323,8 +323,8 @@ def run_one_round(dataset_name, encoding,
                 pat_dict = {
                     'pattern_idx': pat.idx,
                     'items': [x.literal_str for x in pat.items],
-                    'rule_str': 'class {} if {}'.format(pat.mode_class, pat.rule_str),
-                    'mode_class': int(pat.mode_class),
+                    'rule_str': 'class {} if {}'.format(pat.predict_class, pat.rule_str),
+                    'predict_class': int(pat.predict_class),
                     'error_rate': int(pat.error_rate),
                     'size': int(pat.size),
                     'support': int(pat.support),
@@ -348,22 +348,25 @@ if __name__ == '__main__':
     debug_mode = True
 
     if debug_mode:
-        # data = ['breast_sk', 'wine']  # ignore these
-        data = [#'breast_sk', #'iris', 'wine',
-                # 'autism', 'breast', 'cars', 'credit_australia',
-                # 'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
-                'credit_australia',
-                # 'eeg', 'census', 'kdd99', 'airline'
+        data = ['autism', 'breast', 'cars', 'credit_australia',
+                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
+                'credit_taiwan',
+                'eeg',
+                'census',
+                # 'kdd99',
                 # 'airline'
         ]
         encodings = ['skyline']
         asprin_pref = ['pareto_1']
     else:
-        data = ['breast_sk', 'iris', 'wine',
-                'autism', 'breast', 'cars', 'credit_australia',
-                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']
-        n_estimators = [200]  # max boosting rounds if early stopping fails
-        max_depths = [8]
+        data = ['autism', 'breast', 'cars', 'credit_australia',
+                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
+                'credit_taiwan',
+                'eeg',
+                'census',
+                # 'kdd99',
+                # 'airline'
+                ]
         encodings = ['skyline', 'maximal', 'closed']
         # asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
         asprin_pref = ['pareto_1']

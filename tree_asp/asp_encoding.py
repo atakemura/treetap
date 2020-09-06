@@ -26,8 +26,8 @@ class SkylineSolver(BaseSolver):
         super(SkylineSolver, self).__init__()
         self.n_class = n_class - 1
         self.encoding = 'class(0..{}).'.format(self.n_class) + """
-% we would like to pick 1 pattern for each mode_class
-1 { selected(I) :  mode_class(I, K), valid(I) } 1 :- class(K).
+% we would like to pick 1 pattern for each predict_class
+1 { selected(I) :  predict_class(I, K), valid(I) } 1 :- class(K).
 
 % pattern is not invalid
 valid(I) :- pattern(I), not invalid(I).
@@ -38,7 +38,7 @@ greater_in_size_and_geq_in_frequency(J) :- selected(I), support(I,X), support(J,
 geq_in_size_and_greater_in_frequency(J) :- selected(I), support(I,X), support(J,Y),
                                             size(I,Si), size(J, Sj), Si <= Sj, X <  Y.
 
-same_class(J) :- selected(I), mode_class(I,X), mode_class(J,Y), X = Y, I != J.
+same_class(J) :- selected(I), predict_class(I,X), predict_class(J,Y), X = Y, I != J.
 
 dominated :- valid(J), greater_in_size_and_geq_in_frequency(J), same_class(J).
 dominated :- valid(J), geq_in_size_and_greater_in_frequency(J), same_class(J).
@@ -58,8 +58,8 @@ class MaximalSolver(BaseSolver):
         super(MaximalSolver, self).__init__()
         self.n_class = n_class - 1
         self.encoding = 'class(0..{}).\n'.format(self.n_class) + """
-% we would like to pick 1 pattern for each mode_class
-1 { selected(I) :  mode_class(I, K), valid(I) } 1 :- class(K).
+% we would like to pick 1 pattern for each predict_class
+1 { selected(I) :  predict_class(I, K), valid(I) } 1 :- class(K).
 
 % pattern is not invalid
 valid(I) :- pattern(I), not invalid(I).
@@ -85,13 +85,13 @@ class ClosedSolver(BaseSolver):
         super(ClosedSolver, self).__init__()
         self.n_class = n_class - 1
         self.encoding = 'class(0..{}).\n'.format(self.n_class) + """
-% we would like to pick 1 pattern for each mode_class
-1 { selected(I) :  mode_class(I, K), valid(I) } 1 :- class(K).
+% we would like to pick 1 pattern for each predict_class
+1 { selected(I) :  predict_class(I, K), valid(I) } 1 :- class(K).
 
 % pattern is not invalid
 valid(I) :- pattern(I), not invalid(I).
 
-same_class(J) :- selected(I), mode_class(I,X), mode_class(J,Y), X = Y, I != J.
+same_class(J) :- selected(I), predict_class(I,X), predict_class(J,Y), X = Y, I != J.
 
 % % not_subset(J) = I is not a subset of J
 not_subset(J) :- selected(I), item(I,Vi), not item(J,Vi), pattern(J).

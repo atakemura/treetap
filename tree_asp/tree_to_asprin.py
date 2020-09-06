@@ -84,7 +84,7 @@ if __name__ == '__main__':
             print('-'*10)
             print('pattern_idx: item_idx')
             print('{}: {}'.format(pat.idx, pat.items))
-            print('class {} if {}'.format(pat.mode_class, pat.rule_str))
+            print('class {} if {}'.format(pat.predict_class, pat.rule_str))
             print('error_rate: {}'.format(pat.error_rate))
             print('size: {}'.format(pat.size))
             print('support: {}'.format(pat.support))

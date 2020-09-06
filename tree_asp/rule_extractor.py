@@ -30,7 +30,7 @@ class DTRuleExtractor:
         self.verbose = verbose
         self.non_rule_keys = ['class', 'condition_length', 'error_rate',
                               'precision', 'recall', 'f1_score',
-                              'frequency', 'frequency_am', 'mode_class', 'value',
+                              'frequency', 'frequency_am', 'predict_class', 'value',
                               'is_tree_max', 'accuracy']
         self.asp_fact_str = None
         self.fitted_ = False
@@ -200,17 +200,17 @@ class DTRuleExtractor:
                 # reduce boolean mask
                 mask_res = reduce(and_, _tmp_dfs)
                 # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-                # path_rule['mode_class'] = y[mask_res].mode()[0]
-                path_rule['mode_class'] = y[mask_res].mode()[0]
-                y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
+                # path_rule['predict_class'] = y[mask_res].mode()[0]
+                path_rule['predict_class'] = y[mask_res].mode()[0]
+                y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
                 path_rule['frequency'] = len(y[mask_res])  # coverage
                 path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
                 path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
-                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
                                                          average=self.metric_averaging)
-                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
                                                    average=self.metric_averaging)
 
         return rules
@@ -261,7 +261,7 @@ class DTRuleExtractor:
                             lit_obj_list.append(Literal(lit_idx, k))
                         _list_literals.append((rule_idx, lit_idx))
                 if self.verbose:
-                    print('rule_idx: {} class={}: {}'.format(rule_idx, node_rule['mode_class'], rule_txt))
+                    print('rule_idx: {} class={}: {}'.format(rule_idx, node_rule['predict_class'], rule_txt))
                     print('literals: {}'.format(['literal{}'.format(x) for x in _list_literals]))
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
@@ -277,7 +277,7 @@ class DTRuleExtractor:
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
                     'recall': node_rule['recall'],
-                    'mode_class': node_rule['mode_class']
+                    'predict_class': node_rule['predict_class']
                 }
                 print_dicts.append(prn)
                 rl_obj_list.append(Rule(idx=rule_idx,
@@ -290,7 +290,7 @@ class DTRuleExtractor:
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
                                          precision=int(round(node_rule['precision'] * 100)),
                                          recall=int(round(node_rule['recall'] * 100)),
-                                         mode_class=node_rule['mode_class']))
+                                         predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
         self.literals_ = lit_obj_list
         return print_dicts
@@ -309,7 +309,7 @@ class DTRuleExtractor:
             prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
             prn.append('precision({},{}).'.format(rule_idx, int(round(rule_dict['precision'] * 100))))
             prn.append('recall({},{}).'.format(rule_idx, int(round(rule_dict['recall'] * 100))))
-            prn.append('mode_class({},{}).'.format(rule_idx, rule_dict['mode_class']))
+            prn.append('predict_class({},{}).'.format(rule_idx, rule_dict['predict_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)
         return return_str
@@ -321,7 +321,7 @@ class RFRuleExtractor:
         self.verbose = verbose
         self.non_rule_keys = ['class', 'condition_length', 'error_rate',
                               'precision', 'recall', 'f1_score',
-                              'frequency', 'frequency_am', 'mode_class', 'value',
+                              'frequency', 'frequency_am', 'predict_class', 'value',
                               'is_tree_max', 'accuracy']
         self.asp_fact_str = None
         self.fitted_ = False
@@ -492,16 +492,16 @@ class RFRuleExtractor:
                 # reduce boolean mask
                 mask_res = reduce(and_, _tmp_dfs)
                 # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-                path_rule['mode_class'] = y[mask_res].mode()[0]
-                y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
+                path_rule['predict_class'] = y[mask_res].mode()[0]
+                y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
                 path_rule['frequency'] = len(y[mask_res])  # coverage
                 path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
                 path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
-                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
                                                          average=self.metric_averaging)
-                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
                                                    average=self.metric_averaging)
 
         return rules
@@ -553,7 +553,7 @@ class RFRuleExtractor:
                             lit_obj_list.append(Literal(lit_idx, k))
                         _list_literals.append((rule_idx, lit_idx))
                 if self.verbose:
-                    print('rule_idx: {} class={}: {}'.format(rule_idx, node_rule['mode_class'], rule_txt))
+                    print('rule_idx: {} class={}: {}'.format(rule_idx, node_rule['predict_class'], rule_txt))
                     print('literals: {}'.format(['literal{}'.format(x) for x in _list_literals]))
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
@@ -569,7 +569,7 @@ class RFRuleExtractor:
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
                     'recall': node_rule['recall'],
-                    'mode_class': node_rule['mode_class']
+                    'predict_class': node_rule['predict_class']
                 }
                 print_dicts.append(prn)
                 rl_obj_list.append(Rule(idx=rule_idx,
@@ -582,7 +582,7 @@ class RFRuleExtractor:
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
                                          precision=int(round(node_rule['precision'] * 100)),
                                          recall=int(round(node_rule['recall'] * 100)),
-                                         mode_class=node_rule['mode_class']))
+                                         predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
         self.literals_ = lit_obj_list
         return print_dicts
@@ -598,7 +598,7 @@ class RFRuleExtractor:
             prn.append('support({},{}).'.format(ptn_idx, rule_dict['support']))
             prn.append('size({},{}).'.format(ptn_idx, rule_dict['size']))
             prn.append('error_rate({},{}).'.format(ptn_idx, int(round(rule_dict['error_rate'] * 100))))
-            prn.append('mode_class({},{}).'.format(ptn_idx, rule_dict['mode_class']))
+            prn.append('predict_class({},{}).'.format(ptn_idx, rule_dict['predict_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)
         return return_str
@@ -683,7 +683,7 @@ class LGBMRuleExtractor:
         self.TREE_LEAF = -1
         self.non_rule_keys = ['class', 'condition_length', 'error_rate',
                               'precision', 'recall', 'f1_score',
-                              'frequency', 'frequency_am', 'mode_class', 'value',
+                              'frequency', 'frequency_am', 'predict_class', 'value',
                               'is_tree_max', 'accuracy']
         self.asp_fact_str = None
         self.fitted_ = False
@@ -866,38 +866,38 @@ class LGBMRuleExtractor:
             # reduce boolean mask
             mask_res = reduce(and_, _tmp_dfs)
             # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-            # path_rule['mode_class'] = y[mask_res].mode()[0]
-            # y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
+            # path_rule['predict_class'] = y[mask_res].mode()[0]
+            # y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
             # path_rule['condition_length'] = len(_tmp_dfs)
             # path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
             # path_rule['frequency'] = len(y[mask_res])
             # path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
             # path_rule['precision'] = precision_score(y[mask_res], y_pred,
-            #                                         #  pos_label=path_rule['mode_class'],
+            #                                         #  pos_label=path_rule['predict_class'],
             #                                          average=self.metric_averaging,
             #                                          zero_division=0)
             # path_rule['recall'] = recall_score(y[mask_res], y_pred,
-            #                                 #    pos_label=path_rule['mode_class'],
+            #                                 #    pos_label=path_rule['predict_class'],
             #                                    average=self.metric_averaging,
             #                                    zero_division=0)
             # do not subset by mask, use whole dataset
             if y.nunique() != 2:
                 raise RuntimeError('only binary classification is supported at this moment')
-            path_rule['mode_class'] = 1
+            path_rule['predict_class'] = 1
             y_pred = np.zeros(y.shape)
             y_pred[mask_res] = 1
-            # y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
+            # y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
             path_rule['condition_length'] = len(_tmp_dfs)
             path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
             path_rule['frequency'] = len(y[mask_res])
             path_rule['error_rate'] = 1 - accuracy_score(y, y_pred)
             path_rule['accuracy'] = accuracy_score(y, y_pred)
             path_rule['precision'] = precision_score(y, y_pred,
-                                                     #  pos_label=path_rule['mode_class'],
+                                                     #  pos_label=path_rule['predict_class'],
                                                      average=self.metric_averaging,
                                                      zero_division=0)
             path_rule['recall'] = recall_score(y, y_pred,
-                                               #    pos_label=path_rule['mode_class'],
+                                               #    pos_label=path_rule['predict_class'],
                                                average=self.metric_averaging,
                                                zero_division=0)
 
@@ -945,16 +945,17 @@ class LGBMRuleExtractor:
                 # reduce boolean mask
                 mask_res = reduce(and_, _tmp_dfs)
                 # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-                path_rule['mode_class'] = y[mask_res].mode()[0]
-                y_pred = [path_rule['mode_class'] for _ in range(len(y[mask_res]))]
+                # path_rule['predict_class'] = y[mask_res].mode()[0]
+                path_rule['predict_class'] = 1
+                y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
                 path_rule['frequency'] = len(y[mask_res])  # coverage
                 path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
                 path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
-                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
                                                          average=self.metric_averaging)
-                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['mode_class'],
+                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
                                                    average=self.metric_averaging)
                 if y.nunique() != 2:
                     raise RuntimeError('only binary classification is supported at this moment')
@@ -1011,7 +1012,7 @@ class LGBMRuleExtractor:
                             lit_obj_list.append(Literal(lit_idx, k))
                         _list_literals.append((rule_idx, lit_idx))
                 if self.verbose:
-                    print('rule_id {} class={}: {}'.format(rule_idx, node_rule['mode_class'], rule_txt))
+                    print('rule_id {} class={}: {}'.format(rule_idx, node_rule['predict_class'], rule_txt))
                     print('literals: {}'.format(['literal{}'.format(x) for x in _list_literals]))
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
@@ -1027,7 +1028,7 @@ class LGBMRuleExtractor:
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
                     'recall': node_rule['recall'],
-                    'mode_class': node_rule['mode_class']
+                    'predict_class': node_rule['predict_class']
                 }
                 print_dicts.append(prn)
                 rl_obj_list.append(Rule(idx=rule_idx,
@@ -1040,7 +1041,7 @@ class LGBMRuleExtractor:
                                          error_rate=int(round(node_rule['error_rate'] * 100)),
                                          precision=int(round(node_rule['precision'] * 100)),
                                          recall=int(round(node_rule['recall'] * 100)),
-                                         mode_class=node_rule['mode_class']))
+                                         predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
         self.literals_ = lit_obj_list
         return print_dicts
@@ -1059,7 +1060,7 @@ class LGBMRuleExtractor:
             prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
             prn.append('precision({},{}).'.format(rule_idx, int(round(rule_dict['precision'] * 100))))
             prn.append('recall({},{}).'.format(rule_idx, int(round(rule_dict['recall'] * 100))))
-            prn.append('mode_class({},{}).'.format(rule_idx, rule_dict['mode_class']))
+            prn.append('predict_class({},{}).'.format(rule_idx, rule_dict['predict_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)
         return return_str

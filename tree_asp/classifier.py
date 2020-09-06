@@ -36,7 +36,7 @@ class RuleClassifier:
 
     def sort_rules(self, patterns: List[Rule]):
         # sort based on error rate, length and class label
-        sorted_list = sorted(patterns, key=lambda x: (x.error_rate, x.size, x.mode_class))
+        sorted_list = sorted(patterns, key=lambda x: (x.error_rate, x.size, x.predict_class))
         return sorted_list
 
     def predict_single_row(self, row):
@@ -88,6 +88,6 @@ class RuleClassifier:
             # item loop completed
             all_items_active = np.alltrue(items)
             if all_items_active:  # if acceptable pattern is found
-                return pattern.mode_class
+                return pattern.predict_class
         # exhausted
         return self.default_class

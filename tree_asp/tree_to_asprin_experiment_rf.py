@@ -2,10 +2,11 @@ import json
 import os
 import pandas as pd
 import subprocess
+import optuna
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_iris, load_breast_cancer, load_wine
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from category_encoders.one_hot import OneHotEncoder
 from itertools import product
@@ -18,6 +19,62 @@ from rule_extractor import RFRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
+
+
+SEED = 2020
+
+
+def optuna_random_forest(X, y):
+    early_stopping_dict = {'early_stopping_limit': 30,
+                           'early_stop_count': 0,
+                           'best_score': None}
+
+    def optuna_early_stopping_callback(study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
+        if early_stopping_dict['best_score'] is None:
+            early_stopping_dict['best_score'] = study.best_value
+
+        if study.direction == optuna.study.StudyDirection.MAXIMIZE:
+            if study.best_value > early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        elif study.direction == optuna.study.StudyDirection.MINIMIZE:
+            if study.best_value < early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        else:
+            raise ValueError('Unknown study direction: {}'.format(study.direction))
+        return
+
+    def objective(trial: optuna.Trial):
+        # numeric: n_estimators, max_depth, min_samples_split, min_samples_leaf, min_weight_fraction_leaf
+        # choice: criterion(gini, entropy)
+        params = {'n_estimators': trial.suggest_int('n_estimators', 50, 500, 10),
+                  'max_depth': trial.suggest_int('max_depth', 1, 30),
+                  'min_samples_split': trial.suggest_float('min_samples_split', 0.05, 0.5, step=0.02),
+                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 0.05, 0.5, step=0.02),
+                  'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.02),
+                  'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy'])
+                  }
+        rf = RandomForestClassifier(**params, random_state=SEED)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=SEED)
+        rf.fit(x_train, y_train)
+        y_pred = rf.predict(x_valid)
+        acc = accuracy_score(y_valid, y_pred)
+        return acc
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
+    return study.best_params
 
 
 def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref):
@@ -48,7 +105,9 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     metric_averaging = 'micro' if y_valid.nunique() > 2 else 'binary'
 
     rf_start = timer()
-    rf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=SEED)
+    best_params = optuna_random_forest(x_train, y_train)
+    rf = RandomForestClassifier(**best_params, random_state=SEED)
+    # rf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=SEED)
     rf.fit(x_train, y_train)
     rf_end = timer()
 
@@ -202,8 +261,8 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                 pat_dict = {
                     'pattern_idx': pat.idx,
                     'items': [x.literal_str for x in pat.items],
-                    'rule_str': 'class {} if {}'.format(pat.mode_class, pat.rule_str),
-                    'mode_class': int(pat.mode_class),
+                    'rule_str': 'class {} if {}'.format(pat.predict_class, pat.rule_str),
+                    'predict_class': int(pat.predict_class),
                     'error_rate': int(pat.error_rate),
                     'size': int(pat.size),
                     'support': int(pat.support),
