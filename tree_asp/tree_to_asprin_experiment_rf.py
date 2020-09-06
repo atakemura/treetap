@@ -72,7 +72,9 @@ def optuna_random_forest(X, y):
         y_pred = rf.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
         return acc
-    study = optuna.create_study(direction='maximize')
+    sampler = optuna.samplers.TPESampler(seed=SEED)
+    study = optuna.create_study(direction='maximize', sampler=sampler,
+                                pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params
 
@@ -259,11 +261,13 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
                 pat_idx = ans[-1][0]
                 pat = rf_extractor.rules_[pat_idx]  # type: Rule
                 pat_dict = {
-                    'pattern_idx': pat.idx,
+                    'rule_idx': pat.idx,
                     'items': [x.literal_str for x in pat.items],
-                    'rule_str': 'class {} if {}'.format(pat.predict_class, pat.rule_str),
+                    'rule_str': 'class {} IF {}'.format(pat.predict_class, pat.rule_str),
                     'predict_class': int(pat.predict_class),
                     'error_rate': int(pat.error_rate),
+                    'accuracy': int(pat.accuracy),
+                    'precision': int(pat.precision),
                     'size': int(pat.size),
                     'support': int(pat.support),
                 }

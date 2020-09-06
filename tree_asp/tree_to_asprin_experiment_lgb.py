@@ -69,12 +69,17 @@ def optuna_lgb(X, y, static_params):
         return
 
     def objective(trial: optuna.Trial):
-        params = {'learning_rate': trial.suggest_loguniform('learning_rate', 0.01, 0.5),
-                  'max_depth': trial.suggest_int('max_depth', 1, 30),
+        params = {'learning_rate': trial.suggest_loguniform('learning_rate', 0.01, 0.2),
+                  'max_depth': trial.suggest_int('max_depth', 2, 10),
                   'num_leaves': trial.suggest_int('num_leaves', 2, 100),
-                  'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 1000),
-                  'feature_fraction': trial.suggest_uniform('feature_fraction', 0.1, 1.0),
-                  'subsample': trial.suggest_uniform('subsample', 0.1, 1.0)}
+                  'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 500),
+                  'min_child_weight': trial.suggest_loguniform('min_child_weight', 1e-3, 1e+1),
+                  'feature_fraction': trial.suggest_uniform('feature_fraction', 0.05, 1.0),
+                  'subsample': trial.suggest_uniform('subsample', 0.2, 1.0),
+                  'subsample_freq': trial.suggest_int('subsample_freq', 1, 20),
+                  'lambda_l1': trial.suggest_loguniform('lambda_l1', 1e-5, 10),
+                  'lambda_l2': trial.suggest_loguniform('lambda_l2', 1e-5, 10),
+                  }
         all_params = {**params, **static_params}
 
         pruning_callback = optuna.integration.LightGBMPruningCallback(trial, all_params['metric'], valid_name='valid')
@@ -96,7 +101,9 @@ def optuna_lgb(X, y, static_params):
         else:
             score = model.best_score['valid']['binary_logloss']
         return score
-    study = optuna.create_study(direction='minimize', pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
+    sampler = optuna.samplers.TPESampler(seed=SEED)
+    study = optuna.create_study(direction='minimize', sampler=sampler,
+                                pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=600, callbacks=[optuna_early_stopping_callback], n_jobs=1)
     return study.best_params
 
@@ -195,7 +202,7 @@ def run_one_round(dataset_name, encoding,
         #                     tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=16'
         #                     ], capture_output=True, timeout=3600)
         o = subprocess.run(['asprin', asprin_skyline, #asprin_pareto_1,
-                            tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8,split'
+                            tmp_class_file, tmp_pattern_file, '10', '--parallel-mode=8,split'
                             ], capture_output=True, timeout=600)
         asprin_completed = True
     except subprocess.TimeoutExpired:
@@ -321,11 +328,13 @@ def run_one_round(dataset_name, encoding,
                 pat_idx = ans[-1][0]
                 pat = lgb_extractor.rules_[pat_idx]  # type: Rule
                 pat_dict = {
-                    'pattern_idx': pat.idx,
+                    'rule_idx': pat.idx,
                     'items': [x.literal_str for x in pat.items],
-                    'rule_str': 'class {} if {}'.format(pat.predict_class, pat.rule_str),
+                    'rule_str': 'class {} IF {}'.format(pat.predict_class, pat.rule_str),
                     'predict_class': int(pat.predict_class),
                     'error_rate': int(pat.error_rate),
+                    'accuracy': int(pat.accuracy),
+                    'precision': int(pat.precision),
                     'size': int(pat.size),
                     'support': int(pat.support),
                 }
@@ -351,7 +360,7 @@ if __name__ == '__main__':
         data = ['autism', 'breast', 'cars', 'credit_australia',
                 'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
                 'credit_taiwan',
-                'eeg',
+                # 'eeg',
                 'census',
                 # 'kdd99',
                 # 'airline'
