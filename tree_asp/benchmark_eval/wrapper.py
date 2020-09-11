@@ -59,10 +59,10 @@ def optuna_random_forest(X, y):
         # numeric: n_estimators, max_depth, min_samples_split, min_samples_leaf, min_weight_fraction_leaf
         # choice: criterion(gini, entropy)
         params = {'n_estimators': trial.suggest_int('n_estimators', 50, 500, 10),
-                  'max_depth': trial.suggest_int('max_depth', 1, 30),
-                  'min_samples_split': trial.suggest_float('min_samples_split', 0.05, 0.5, step=0.02),
-                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 0.05, 0.5, step=0.02),
-                  'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.02),
+                  'max_depth': trial.suggest_int('max_depth', 2, 10),
+                  'min_samples_split': trial.suggest_float('min_samples_split', 0.05, 0.5, step=0.01),
+                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 0.05, 0.5, step=0.01),
+                  'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.01),
                   'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy'])
                   }
         rf = RandomForestClassifier(**params, random_state=SEED)
