@@ -178,22 +178,22 @@ def run_one_round(dataset_name, encoding,
         # outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
         outfile.write('class(1).')
 
-    asprin_pareto_1   = './asp_encoding/asprin_pareto_1.lp'
-    asprin_pareto_2   = './asp_encoding/asprin_pareto_2.lp'
-    asprin_lexico     = './asp_encoding/asprin_lexico.lp'
-    asprin_pareto     = './asp_encoding/asprin_pareto.lp'
-    asprin_skyline    = './asp_encoding/skyline.lp'
+    # asprin_pareto_1   = './asp_encoding/asprin_pareto_1.lp'
+    # asprin_pareto_2   = './asp_encoding/asprin_pareto_2.lp'
+    # asprin_lexico     = './asp_encoding/asprin_lexico.lp'
+    # asprin_pareto     = './asp_encoding/asprin_pareto.lp'
+    # asprin_skyline    = './asp_encoding/skyline.lp'
     asprin_skyline    = './asp_encoding/asprin_skyline_new.lp'
-    asprin_maximal    = './asp_encoding/maximal.lp'
-    asprin_closed     = './asp_encoding/closed.lp'
+    # asprin_maximal    = './asp_encoding/maximal.lp'
+    # asprin_closed     = './asp_encoding/closed.lp'
 
-    clingo_test       = './asp_encoding/maximal_noclass.lp'
-    general_rule_test = './asp_encoding/rule_selection.lp'
-
-    asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal,
-                  'closed': asprin_closed, 'general_rule': general_rule_test}
-    asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2,
-                         'lexico': asprin_lexico, 'pareto_test': asprin_pareto}
+    # clingo_test       = './asp_encoding/maximal_noclass.lp'
+    # general_rule_test = './asp_encoding/rule_selection.lp'
+    #
+    # asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal,
+    #               'closed': asprin_closed, 'general_rule': general_rule_test}
+    # asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2,
+    #                      'lexico': asprin_lexico, 'pareto_test': asprin_pareto}
 
     asprin_start = timer()
     print('asprin start')
@@ -357,7 +357,9 @@ if __name__ == '__main__':
     debug_mode = True
 
     if debug_mode:
-        data = ['autism', 'breast', 'cars', 'credit_australia',
+        data = ['autism', 'breast',
+                # 'cars',
+                'credit_australia',
                 'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
                 'credit_taiwan',
                 # 'eeg',

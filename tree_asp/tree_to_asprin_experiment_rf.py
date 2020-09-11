@@ -19,6 +19,7 @@ from rule_extractor import RFRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
+from utils import load_data
 
 
 SEED = 2020
@@ -60,10 +61,10 @@ def optuna_random_forest(X, y):
         # numeric: n_estimators, max_depth, min_samples_split, min_samples_leaf, min_weight_fraction_leaf
         # choice: criterion(gini, entropy)
         params = {'n_estimators': trial.suggest_int('n_estimators', 50, 500, 10),
-                  'max_depth': trial.suggest_int('max_depth', 1, 30),
-                  'min_samples_split': trial.suggest_float('min_samples_split', 0.05, 0.5, step=0.02),
-                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 0.05, 0.5, step=0.02),
-                  'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.02),
+                  'max_depth': trial.suggest_int('max_depth', 2, 10),
+                  'min_samples_split': trial.suggest_float('min_samples_split', 0.05, 0.5, step=0.01),
+                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 0.05, 0.5, step=0.01),
+                  'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.01),
                   'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy'])
                   }
         rf = RandomForestClassifier(**params, random_state=SEED)
@@ -79,7 +80,7 @@ def optuna_random_forest(X, y):
     return study.best_params
 
 
-def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref):
+def run_experiment(dataset_name, encoding):
     X, y = load_data(dataset_name)
     categorical_features = list(X.columns[X.dtypes == 'category'])
     if len(categorical_features) > 0:
@@ -87,15 +88,16 @@ def run_experiment(dataset_name, n_estimators, max_depth, encoding, asprin_pref)
         X = oh.fit_transform(X)
     feat = X.columns
 
-    skf = StratifiedKFold(n_splits=5, shuffle=False, random_state=2020)
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=2020)
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
-        run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
+        run_one_round(dataset_name, encoding,
                       train_idx, valid_idx, X, y, feat, fold=f_idx)
 
 
-def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
+def run_one_round(dataset_name, encoding,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
-    print('[rf]', dataset_name, n_estimators, max_depth, encoding, asprin_pref, fold)
+    experiment_tag = 'rf_{}_{}_{}'.format(dataset_name, encoding, fold)
+    print('=' * 30, experiment_tag, '=' * 30)
     start = timer()
 
     SEED = 42
@@ -125,31 +127,35 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     res_str = rf_extractor.transform(x_train, y_train)
     ext_end = timer()
 
-    exp_dir = './tmp/experiment_rf'
+    exp_dir = './tmp/experiment_rf_dev'
 
-    tmp_pattern_file = os.path.join(exp_dir, 'pattern_out.txt')
-    tmp_class_file = os.path.join(exp_dir, 'n_class.lp')
+    tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
+    tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
         outfile.write(res_str)
 
     with open(tmp_class_file, 'w', encoding='utf-8') as outfile:
-        outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
+        outfile.write('class(1).'.format(int(y_train.nunique() - 1)))
 
-    asprin_pareto_1   = './asp_encoding/asprin_pareto_1.lp'
-    asprin_pareto_2   = './asp_encoding/asprin_pareto_2.lp'
-    asprin_lexico     = './asp_encoding/asprin_lexico.lp'
-    asprin_skyline    = './asp_encoding/skyline.lp'
-    asprin_maximal    = './asp_encoding/maximal.lp'
-    asprin_closed     = './asp_encoding/closed.lp'
+    # asprin_pareto_1   = './asp_encoding/asprin_pareto_1.lp'
+    # asprin_pareto_2   = './asp_encoding/asprin_pareto_2.lp'
+    # asprin_lexico     = './asp_encoding/asprin_lexico.lp'
+    # asprin_skyline    = './asp_encoding/skyline.lp'
+    asprin_skyline    = './asp_encoding/asprin_skyline_new.lp'
+    # asprin_maximal    = './asp_encoding/maximal.lp'
+    # asprin_closed     = './asp_encoding/closed.lp'
 
-    asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal, 'closed': asprin_closed}
-    asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2, 'lexico': asprin_lexico}
+    # asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal, 'closed': asprin_closed}
+    # asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2, 'lexico': asprin_lexico}
 
     asprin_start = timer()
     try:
-        o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
-                            tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8'
+        # o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
+        #                     tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8'
+        #                     ], capture_output=True, timeout=120)
+        o = subprocess.run(['asprin', asprin_skyline,
+                            tmp_class_file, tmp_pattern_file, '10', '--parallel-mode=8'
                             ], capture_output=True, timeout=120)
         asprin_completed = True
     except subprocess.TimeoutExpired:
@@ -167,7 +173,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
     log_json = os.path.join(exp_dir, 'output.json')
     log_json_quali = os.path.join(exp_dir, 'output_quali.json')
 
-    if asprin_completed:
+    if asprin_completed and clasp_info is not None:
         scores = []
         for ans_idx, ans_set in enumerate(answers):
             if not ans_set.is_optimal:
@@ -190,10 +196,10 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
         out_dict = {
             # experiment
             'dataset': dataset_name,
-            'n_estimators': n_estimators,
-            'max_depth': max_depth,
+            'n_estimators': best_params['n_estimators'],
+            'max_depth': best_params['max_depth'],
             'encoding': encoding,
-            'asprin_preference': asprin_pref,
+            # 'asprin_preference': asprin_pref,
             'asprin_completed': asprin_completed,
             # clasp
             'models': clasp_info.stats['Models'],
@@ -204,6 +210,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             # rf related
             'rf_n_nodes': len(rf_extractor.literals_),
             'rf_n_patterns': len(rf_extractor.rules_),
+            'hyperparams': best_params,
             # timer
             'py_total_time': end - start,
             'py_rf_time': rf_end - rf_start,
@@ -219,10 +226,10 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
         out_dict = {
             # experiment
             'dataset': dataset_name,
-            'n_estimators': n_estimators,
-            'max_depth': max_depth,
+            'n_estimators': best_params['n_estimators'],
+            'max_depth': best_params['max_depth'],
             'encoding': encoding,
-            'asprin_preference': asprin_pref,
+            # 'asprin_preference': asprin_pref,
             'asprin_completed': asprin_completed,
             # # clasp
             # 'models': int(clasp_info.stats['Models']),
@@ -233,6 +240,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             # rf related
             'rf_n_nodes': len(rf_extractor.literals_),
             'rf_n_patterns': len(rf_extractor.rules_),
+            'hyperparams': best_params,
             # timer
             'py_total_time': end - start,
             'py_rf_time': rf_end - rf_start,
@@ -280,52 +288,19 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             out_log_quali.write(json.dumps(out_quali)+'\n')
 
 
-def load_data(dataset_name):
-    # there is no categorical feature in these sklearn datasets.
-    sklearn_data = {'iris': load_iris,
-                    'breast_sk': load_breast_cancer,
-                    'wine': load_wine}
-    # the following contains a mix of categorical and numerical features.
-    datasets = ['autism', 'breast', 'cars',
-                'credit_australia', 'heart', 'ionosphere',
-                'kidney', 'krvskp', 'voting']
-    if dataset_name in sklearn_data.keys():
-        load_data_method = sklearn_data[dataset_name]
-        data_obj = load_data_method()
-        feat = data_obj['feature_names']
-        data = data_obj['data']
-        target = data_obj['target']
-
-        df = pd.DataFrame(data, columns=feat).assign(target=target)
-        X, y = df[feat], df['target']
-        dataset = (X, y)
-    elif dataset_name in datasets:
-        dataset_dir = Path('../datasets/datasets/') / dataset_name
-
-        raw = pd.read_csv(Path(dataset_dir / dataset_name).with_suffix('.csv'))
-        with open(dataset_dir / 'schema.json', 'r') as infile:
-            schema = json.load(infile)
-        for c in schema['categorical_columns']:
-            raw.loc[:, c] = raw.loc[:, c].astype('category')
-        raw_x = raw[[c for c in raw.columns if c != schema['label_column']]].copy()
-        if schema['id_col'] != "":
-            raw_x.drop(schema['id_col'], axis=1, inplace=True)
-        raw_y = raw[schema['label_column']]
-        dataset = (raw_x, raw_y)
-    else:
-        raise ValueError('unrecognized dataset name: {}'.format(dataset_name))
-    return dataset
-
-
 if __name__ == '__main__':
     start_time = timer()
 
     debug_mode = True
 
     if debug_mode:
-        data = ['breast_sk', 'wine']
-        n_estimators = [10]
-        max_depths = [5]
+        data = ['autism', 'breast',
+                # 'cars',
+                'credit_australia',
+                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
+                'credit_taiwan',
+                # 'eeg',
+                'census',]
         encodings = ['skyline']
         asprin_pref = ['pareto_1']
     else:
@@ -337,7 +312,7 @@ if __name__ == '__main__':
         encodings = ['skyline', 'maximal', 'closed']
         asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
 
-    combinations = product(data, n_estimators, max_depths, encodings, asprin_pref)
+    combinations = product(data, encodings)
     for cond_tuple in tqdm(combinations):
         run_experiment(*cond_tuple)
     end_time = timer()
