@@ -24,6 +24,10 @@ EQ_PATTERN = ' == '
 NEQ_PATTERN = ' != '
 
 
+class OnlyLeafFoundException(BaseException):
+    pass
+
+
 class DTRuleExtractor:
     def __init__(self, verbose=False):
         self.feature_names = None
@@ -344,7 +348,11 @@ class RFRuleExtractor:
         # extract rules for all trees
         rules = {}
         for t_idx, tree in enumerate(model.estimators_):
-            _, rules[t_idx] = self.export_text_rule_tree(tree, X, feature_names)
+            try:
+                _, rules[t_idx] = self.export_text_rule_tree(tree, X, feature_names)
+            except OnlyLeafFoundException:
+                print('skipping leaf only tree')
+                continue
         rules = self.export_text_rule_rf(rules, X, y)
 
         # simple rule merging
@@ -390,6 +398,8 @@ class RFRuleExtractor:
         for leaf in np.unique(leave_id):
             path_leaf = []
             self.find_path_recursive(0, path_leaf, leaf, children_left, children_right)
+            if len(np.unique(path_leaf)) == 1:
+                raise OnlyLeafFoundException
             paths[leaf] = np.unique(np.sort(path_leaf))
         # get rules
         rules = {}
@@ -490,10 +500,14 @@ class RFRuleExtractor:
                             _tmp_dfs.append(getattr(X[_rule_field], 'ge')(float(_rule_threshold)))
                         else:
                             raise ValueError('No key found')
+                # for a path that has length = 1 (straight to leaf)
+                if len(_tmp_dfs) == 0:
+                    continue
                 # reduce boolean mask
                 mask_res = reduce(and_, _tmp_dfs)
                 # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-                path_rule['predict_class'] = y[mask_res].mode()[0]
+                # path_rule['predict_class'] = y[mask_res].mode()[0]
+                path_rule['predict_class'] = 1
                 y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
@@ -528,6 +542,9 @@ class RFRuleExtractor:
 
         for t_idx, t in rules.items():
             for node_idx, node_rule in t.items():
+                # skip unrelated classes
+                if node_rule['class'] != 1:
+                    continue
                 # rule
                 rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
 
