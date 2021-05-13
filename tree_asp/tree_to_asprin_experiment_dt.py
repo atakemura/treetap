@@ -144,7 +144,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             'clasp_time': clasp_info.stats['Time'],
             'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # dt related
-            'dt_n_nodes': len(dt_extractor.literals_),
+            'dt_n_nodes': len(dt_extractor.conditions_),
             'dt_n_patterns': len(dt_extractor.rules_),
             # timer
             'py_total_time': end - start,
@@ -173,7 +173,7 @@ def run_one_round(dataset_name, n_estimators, max_depth, encoding, asprin_pref,
             # 'clasp_time': clasp_info.stats['Time'],
             # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # dt related
-            'dt_n_nodes': len(dt_extractor.literals_),
+            'dt_n_nodes': len(dt_extractor.conditions_),
             'dt_n_patterns': len(dt_extractor.rules_),
             # timer
             'py_total_time': end - start,

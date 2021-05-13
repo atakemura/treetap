@@ -208,7 +208,7 @@ def run_one_round(dataset_name, encoding,
             'clasp_time': clasp_info.stats['Time'],
             'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # rf related
-            'rf_n_nodes': len(rf_extractor.literals_),
+            'rf_n_nodes': len(rf_extractor.conditions_),
             'rf_n_patterns': len(rf_extractor.rules_),
             'hyperparams': best_params,
             # timer
@@ -238,7 +238,7 @@ def run_one_round(dataset_name, encoding,
             # 'clasp_time': clasp_info.stats['Time'],
             # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # rf related
-            'rf_n_nodes': len(rf_extractor.literals_),
+            'rf_n_nodes': len(rf_extractor.conditions_),
             'rf_n_patterns': len(rf_extractor.rules_),
             'hyperparams': best_params,
             # timer

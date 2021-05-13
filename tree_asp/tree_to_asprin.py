@@ -11,7 +11,7 @@ import sys
 
 from clasp_parser import generate_answers
 from answers import AnswerSet, ClaspInfo
-from rule import Rule, Literal
+from rule import Rule, Condition
 
 
 if __name__ == '__main__':

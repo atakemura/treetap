@@ -44,7 +44,7 @@ class RuleClassifier:
         for pattern in self.rules:
             items = [False] * pattern.size
             for item_idx, item in enumerate(pattern.items):
-                item_str = item.literal_str
+                item_str = item.condition_str
                 item_active = False
                 if LT_PATTERN in item_str:
                     _rule_field, _rule_threshold = item_str.rsplit(LT_PATTERN, 1)

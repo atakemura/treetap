@@ -166,7 +166,7 @@ def run_one_round(dataset_name, encoding,
     print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
                                                                         round(ext_end - start)))
 
-    exp_dir = './tmp/experiment_lgb_dev'
+    exp_dir = './tmp/synthetic_1'
 
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
@@ -264,7 +264,7 @@ def run_one_round(dataset_name, encoding,
             'clasp_time': clasp_info.stats['Time'],
             'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # rf related
-            'lgb_n_nodes': len(lgb_extractor.literals_),
+            'lgb_n_nodes': len(lgb_extractor.conditions_),
             'lgb_n_patterns': len(lgb_extractor.rules_),
             'hyperparams': hyperparams,
             # timer
@@ -296,7 +296,7 @@ def run_one_round(dataset_name, encoding,
             # 'clasp_time': clasp_info.stats['Time'],
             # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # lgb related
-            'lgb_n_nodes': len(lgb_extractor.literals_),
+            'lgb_n_nodes': len(lgb_extractor.conditions_),
             'lgb_n_patterns': len(lgb_extractor.rules_),
             'hyperparams': hyperparams,
             # timer
@@ -329,7 +329,7 @@ def run_one_round(dataset_name, encoding,
                 pat = lgb_extractor.rules_[pat_idx]  # type: Rule
                 pat_dict = {
                     'rule_idx': pat.idx,
-                    'items': [x.literal_str for x in pat.items],
+                    'items': [x.condition_str for x in pat.items],
                     'rule_str': 'class {} IF {}'.format(pat.predict_class, pat.rule_str),
                     'predict_class': int(pat.predict_class),
                     'error_rate': int(pat.error_rate),
@@ -357,15 +357,16 @@ if __name__ == '__main__':
     debug_mode = True
 
     if debug_mode:
-        data = ['autism', 'breast',
+        data = [#'autism', 'breast',
                 # 'cars',
-                'credit_australia',
-                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
-                'credit_taiwan',
+                # 'credit_australia',
+                # 'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
+                # 'credit_taiwan',
                 # 'eeg',
-                'census',
+                # 'census',
                 # 'kdd99',
                 # 'airline'
+                'synthetic_1'
         ]
         encodings = ['skyline']
         asprin_pref = ['pareto_1']

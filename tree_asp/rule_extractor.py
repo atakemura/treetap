@@ -13,7 +13,7 @@ from multiprocessing import Pool
 from os import cpu_count
 from operator import and_
 
-from rule import Rule, Literal
+from rule import Rule, Condition
 from utils import timer_exec
 
 LT_PATTERN = ' < '
@@ -39,7 +39,7 @@ class DTRuleExtractor:
         self.asp_fact_str = None
         self.fitted_ = False
         self.rules_ = None
-        self.literals_ = None
+        self.conditions_ = None
         self.metric_averaging = None
 
     def fit(self, X, y, model=None, feature_names=None, **params):
@@ -231,10 +231,10 @@ class DTRuleExtractor:
             list of dicts
         """
         rule_list = []
-        literal_list = []
+        condition_list = []
         print_dicts = []
 
-        # rule and literal instances
+        # rule and condition instances
         rl_obj_list = []
         lit_obj_list = []
 
@@ -254,20 +254,20 @@ class DTRuleExtractor:
                 else:
                     rule_list.append(rule_txt)
                     rule_idx = len(rule_list) - 1
-                # literals
-                _list_literals = []
+                # conditions
+                _list_conditions = []
                 for k in node_rule.keys():
                     if k not in self.non_rule_keys:
-                        if k in literal_list:
-                            lit_idx = literal_list.index(k)
+                        if k in condition_list:
+                            lit_idx = condition_list.index(k)
                         else:
-                            literal_list.append(k)
-                            lit_idx = len(literal_list) - 1
-                            lit_obj_list.append(Literal(lit_idx, k))
-                        _list_literals.append((rule_idx, lit_idx))
+                            condition_list.append(k)
+                            lit_idx = len(condition_list) - 1
+                            lit_obj_list.append(Condition(lit_idx, k))
+                        _list_conditions.append((rule_idx, lit_idx))
                 if self.verbose:
                     print('rule_idx: {} class={}: {}'.format(rule_idx, node_rule['predict_class'], rule_txt))
-                    print('literals: {}'.format(['literal{}'.format(x) for x in _list_literals]))
+                    print('conditions: {}'.format(['condition{}'.format(x) for x in _list_conditions]))
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
 
@@ -275,9 +275,9 @@ class DTRuleExtractor:
                 prn = {
                     'rule_idx': rule_idx,
                     'rule': rule_txt,
-                    'literals': [x for x in _list_literals],
+                    'conditions': [x for x in _list_conditions],
                     'support': node_rule['frequency_am'],
-                    'size': len(_list_literals),
+                    'size': len(_list_conditions),
                     'error_rate': node_rule['error_rate'],
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
@@ -287,17 +287,17 @@ class DTRuleExtractor:
                 print_dicts.append(prn)
                 rl_obj_list.append(Rule(idx=rule_idx,
                                          rule_str=rule_txt,
-                                         literals=[Literal(itm_idx_k, literal_list[itm_idx_k])
-                                                   for (_, itm_idx_k) in _list_literals],
+                                         conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
+                                                   for (_, itm_idx_k) in _list_conditions],
                                          support=int(round(node_rule['frequency'] * 100)),
-                                         size=len(_list_literals),
+                                         size=len(_list_conditions),
                                          error_rate=int(round(node_rule['error_rate']*100)),
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
                                          precision=int(round(node_rule['precision'] * 100)),
                                          recall=int(round(node_rule['recall'] * 100)),
                                          predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
-        self.literals_ = lit_obj_list
+        self.conditions_ = lit_obj_list
         return print_dicts
 
     def asp_str_from_dicts(self, list_dicts: list):
@@ -306,8 +306,8 @@ class DTRuleExtractor:
             prn = []
             rule_idx = rule_dict['rule_idx']
             prn.append('rule({}).'.format(rule_idx))
-            for x in rule_dict['literals']:
-                prn.append('literal({},{}).'.format(x[0], x[1]))
+            for x in rule_dict['conditions']:
+                prn.append('condition({},{}).'.format(x[0], x[1]))
             prn.append('support({},{}).'.format(rule_idx, int(round(rule_dict['support'] * 100))))
             prn.append('size({},{}).'.format(rule_idx, rule_dict['size']))
             prn.append('accuracy({},{}).'.format(rule_idx, int(round(rule_dict['accuracy'] * 100))))
@@ -331,7 +331,7 @@ class RFRuleExtractor:
         self.asp_fact_str = None
         self.fitted_ = False
         self.rules_ = None
-        self.literals_ = None
+        self.conditions_ = None
         self.metric_averaging = None
 
     def fit(self, X, y, model=None, feature_names=None, **params):
@@ -533,7 +533,7 @@ class RFRuleExtractor:
             list of dicts
         """
         rule_list = []
-        literal_list = []
+        condition_list = []
         print_dicts = []
 
         # pattern and item instances
@@ -559,20 +559,20 @@ class RFRuleExtractor:
                 else:
                     rule_list.append(rule_txt)
                     rule_idx = len(rule_list) - 1
-                # literals
-                _list_literals = []
+                # conditions
+                _list_conditions = []
                 for k in node_rule.keys():
                     if k not in self.non_rule_keys:
-                        if k in literal_list:
-                            lit_idx = literal_list.index(k)
+                        if k in condition_list:
+                            lit_idx = condition_list.index(k)
                         else:
-                            literal_list.append(k)
-                            lit_idx = len(literal_list) - 1
-                            lit_obj_list.append(Literal(lit_idx, k))
-                        _list_literals.append((rule_idx, lit_idx))
+                            condition_list.append(k)
+                            lit_idx = len(condition_list) - 1
+                            lit_obj_list.append(Condition(lit_idx, k))
+                        _list_conditions.append((rule_idx, lit_idx))
                 if self.verbose:
                     print('rule_idx: {} class={}: {}'.format(rule_idx, node_rule['predict_class'], rule_txt))
-                    print('literals: {}'.format(['literal{}'.format(x) for x in _list_literals]))
+                    print('conditions: {}'.format(['condition{}'.format(x) for x in _list_conditions]))
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
 
@@ -580,9 +580,9 @@ class RFRuleExtractor:
                 prn = {
                     'rule_idx': rule_idx,
                     'rule': rule_txt,
-                    'literals': [x for x in _list_literals],
+                    'conditions': [x for x in _list_conditions],
                     'support': node_rule['frequency_am'],
-                    'size': len(_list_literals),
+                    'size': len(_list_conditions),
                     'error_rate': node_rule['error_rate'],
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
@@ -592,17 +592,17 @@ class RFRuleExtractor:
                 print_dicts.append(prn)
                 rl_obj_list.append(Rule(idx=rule_idx,
                                          rule_str=rule_txt,
-                                         literals=[Literal(itm_idx_k, literal_list[itm_idx_k])
-                                                   for (_, itm_idx_k) in _list_literals],
+                                         conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
+                                                   for (_, itm_idx_k) in _list_conditions],
                                          support=int(round(node_rule['frequency_am']*100)),
-                                         size=len(_list_literals),
+                                         size=len(_list_conditions),
                                          error_rate=int(round(node_rule['error_rate']*100)),
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
                                          precision=int(round(node_rule['precision'] * 100)),
                                          recall=int(round(node_rule['recall'] * 100)),
                                          predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
-        self.literals_ = lit_obj_list
+        self.conditions_ = lit_obj_list
         return print_dicts
 
     def asp_str_from_dicts(self, list_dicts: list):
@@ -611,8 +611,8 @@ class RFRuleExtractor:
             prn = []
             ptn_idx = rule_dict['rule_idx']
             prn.append('rule({}).'.format(ptn_idx))
-            for x in rule_dict['literals']:
-                prn.append('literal({},{}).'.format(x[0], x[1]))
+            for x in rule_dict['conditions']:
+                prn.append('condition({},{}).'.format(x[0], x[1]))
             prn.append('support({},{}).'.format(ptn_idx, int(round(rule_dict['support'] * 100))))
             prn.append('size({},{}).'.format(ptn_idx, rule_dict['size']))
             prn.append('accuracy({},{}).'.format(ptn_idx, int(round(rule_dict['accuracy'] * 100))))
@@ -709,7 +709,7 @@ class LGBMRuleExtractor:
         self.asp_fact_str = None
         self.fitted_ = False
         self.rules_ = None
-        self.literals_ = None
+        self.conditions_ = None
         self.num_tree_per_iteration = None
         self.metric_averaging = None
 
@@ -995,7 +995,7 @@ class LGBMRuleExtractor:
             list of dicts
         """
         rule_list = []
-        literal_list = []
+        condition_list = []
         print_dicts = []
 
         # pattern and item instances
@@ -1022,19 +1022,19 @@ class LGBMRuleExtractor:
                     rule_list.append(rule_txt)
                     rule_idx = len(rule_list) - 1
                 # items
-                _list_literals = []
+                _list_conditions = []
                 for k in node_rule.keys():
                     if k not in self.non_rule_keys:
-                        if k in literal_list:
-                            lit_idx = literal_list.index(k)
+                        if k in condition_list:
+                            lit_idx = condition_list.index(k)
                         else:
-                            literal_list.append(k)
-                            lit_idx = len(literal_list) - 1
-                            lit_obj_list.append(Literal(lit_idx, k))
-                        _list_literals.append((rule_idx, lit_idx))
+                            condition_list.append(k)
+                            lit_idx = len(condition_list) - 1
+                            lit_obj_list.append(Condition(lit_idx, k))
+                        _list_conditions.append((rule_idx, lit_idx))
                 if self.verbose:
                     print('rule_id {} class={}: {}'.format(rule_idx, node_rule['predict_class'], rule_txt))
-                    print('literals: {}'.format(['literal{}'.format(x) for x in _list_literals]))
+                    print('conditions: {}'.format(['condition{}'.format(x) for x in _list_conditions]))
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
 
@@ -1042,9 +1042,9 @@ class LGBMRuleExtractor:
                 prn = {
                     'rule_idx': rule_idx,
                     'rule': rule_txt,
-                    'literals': [x for x in _list_literals],
+                    'conditions': [x for x in _list_conditions],
                     'support': node_rule['frequency_am'],
-                    'size': len(_list_literals),
+                    'size': len(_list_conditions),
                     'error_rate': node_rule['error_rate'],
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
@@ -1054,17 +1054,17 @@ class LGBMRuleExtractor:
                 print_dicts.append(prn)
                 rl_obj_list.append(Rule(idx=rule_idx,
                                          rule_str=rule_txt,
-                                         literals=[Literal(itm_idx_k, literal_list[itm_idx_k])
-                                                   for (_, itm_idx_k) in _list_literals],
+                                         conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
+                                                   for (_, itm_idx_k) in _list_conditions],
                                          support=int(round(node_rule['frequency_am'] * 100)),
-                                         size=len(_list_literals),
+                                         size=len(_list_conditions),
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
                                          error_rate=int(round(node_rule['error_rate'] * 100)),
                                          precision=int(round(node_rule['precision'] * 100)),
                                          recall=int(round(node_rule['recall'] * 100)),
                                          predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
-        self.literals_ = lit_obj_list
+        self.conditions_ = lit_obj_list
         return print_dicts
 
     def asp_str_from_dicts(self, list_dicts: list):
@@ -1073,8 +1073,8 @@ class LGBMRuleExtractor:
             prn = []
             rule_idx = rule_dict['rule_idx']
             prn.append('rule({}).'.format(rule_idx))
-            for x in rule_dict['literals']:
-                prn.append('literal({},{}).'.format(x[0], x[1]))
+            for x in rule_dict['conditions']:
+                prn.append('condition({},{}).'.format(x[0], x[1]))
             prn.append('support({},{}).'.format(rule_idx, int(round(rule_dict['support'] * 100))))
             prn.append('size({},{}).'.format(rule_idx, rule_dict['size']))
             prn.append('accuracy({},{}).'.format(rule_idx, int(round(rule_dict['accuracy'] * 100))))

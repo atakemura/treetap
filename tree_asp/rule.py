@@ -1,8 +1,8 @@
 class Rule:
-    def __init__(self, idx, rule_str, literals, support, size, accuracy, error_rate, precision, recall, predict_class):
+    def __init__(self, idx, rule_str, conditions, support, size, accuracy, error_rate, precision, recall, predict_class):
         self.idx = idx
         self.rule_str = rule_str
-        self.items = literals
+        self.items = conditions
         self.support = support
         self.size = size
         self.accuracy = accuracy
@@ -26,16 +26,16 @@ class Rule:
         return (self.idx == other.idx) and (self.rule_str == other.rule_str)
 
 
-class Literal:
-    def __init__(self, idx, literal_str):
+class Condition:
+    def __init__(self, idx, condition_str):
         self.idx = idx
-        self.literal_str = literal_str
+        self.condition_str = condition_str
 
     def __str__(self):
-        return 'literal_idx={}. literal={}.'.format(self.idx, self.literal_str)
+        return 'condition_idx={}. condition={}.'.format(self.idx, self.condition_str)
 
     def __repr__(self):
-        return 'Literal({}, {})'.format(self.idx, self.literal_str)
+        return 'Condition({}, {})'.format(self.idx, self.condition_str)
 
     def __eq__(self, other):
-        return (self.idx == other.idx) and (self.literal_str == other.literal_str)
+        return (self.idx == other.idx) and (self.condition_str == other.condition_str)

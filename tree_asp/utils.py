@@ -23,6 +23,8 @@ def load_data(dataset_name):
     datasets = ['autism', 'breast', 'cars',
                 'credit_australia', 'credit_taiwan', 'heart', 'ionosphere',
                 'kidney', 'krvskp', 'voting',
+                # small, 2000 synthetic
+                'synthetic_1',
                 # 50k
                 'eeg',
                 # these datasets are large (>200k), use with caution
