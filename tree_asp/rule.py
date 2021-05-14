@@ -1,5 +1,6 @@
 class Rule:
-    def __init__(self, idx, rule_str, conditions, support, size, accuracy, error_rate, precision, recall, predict_class):
+    def __init__(self, idx, rule_str, conditions, support, size, accuracy, error_rate,
+                 precision, recall, f1_score, predict_class):
         self.idx = idx
         self.rule_str = rule_str
         self.items = conditions
@@ -9,18 +10,19 @@ class Rule:
         self.error_rate = error_rate
         self.precision = precision
         self.recall = recall
+        self.f1_score = f1_score
         self.predict_class = predict_class
 
     def __str__(self):
         return 'rule_idx={}. rule={}. items={}. size={}. predict_class={}.' \
-               'accuracy={}. error_rate={}. precision={}. recall={}.'.format(
+               'accuracy={}. error_rate={}. precision={}. recall={}. f1_score={}'.format(
             self.idx, self.rule_str, self.items, self.size, self.predict_class,
-            self.accuracy, self.error_rate, self.precision, self.recall)
+            self.accuracy, self.error_rate, self.precision, self.recall, self.f1_score)
 
     def __repr__(self):
-        return 'Rule({}, {}, {}, {}, {}, {}, {}, {}, {}, {})'.format(
+        return 'Rule({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})'.format(
             self.idx, self.rule_str, self.items, self.support, self.size, self.accuracy,
-            self.error_rate, self.precision, self.recall, self.predict_class)
+            self.error_rate, self.precision, self.recall, self.f1_score, self.predict_class)
 
     def __eq__(self, other):
         return (self.idx == other.idx) and (self.rule_str == other.rule_str)

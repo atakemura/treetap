@@ -4,7 +4,7 @@ import lightgbm as lgb
 from sklearn.base import is_classifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import accuracy_score, recall_score, precision_score
+from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 from sklearn.tree import _tree
 from sklearn.utils.validation import check_is_fitted
 
@@ -216,6 +216,8 @@ class DTRuleExtractor:
                                                          average=self.metric_averaging)
                 path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
                                                    average=self.metric_averaging)
+                path_rule['f1_score'] = f1_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+                                                 average=self.metric_averaging)
 
         return rules
 
@@ -282,6 +284,7 @@ class DTRuleExtractor:
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
                     'recall': node_rule['recall'],
+                    'f1_score': node_rule['f1_score'],
                     'predict_class': node_rule['predict_class']
                 }
                 print_dicts.append(prn)
@@ -295,6 +298,7 @@ class DTRuleExtractor:
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
                                          precision=int(round(node_rule['precision'] * 100)),
                                          recall=int(round(node_rule['recall'] * 100)),
+                                         f1_score=int(round(node_rule['f1_score'] * 100)),
                                          predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
@@ -314,6 +318,7 @@ class DTRuleExtractor:
             prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
             prn.append('precision({},{}).'.format(rule_idx, int(round(rule_dict['precision'] * 100))))
             prn.append('recall({},{}).'.format(rule_idx, int(round(rule_dict['recall'] * 100))))
+            prn.append('f1_score({},{}).'.format(rule_idx, int(round(rule_dict['f1_score'] * 100))))
             prn.append('predict_class({},{}).'.format(rule_idx, rule_dict['predict_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)
@@ -518,7 +523,8 @@ class RFRuleExtractor:
                                                          average=self.metric_averaging)
                 path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
                                                    average=self.metric_averaging)
-
+                path_rule['f1_score'] = f1_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+                                                 average=self.metric_averaging)
         return rules
 
     def asp_dict_from_rules(self, rules: dict):
@@ -587,6 +593,7 @@ class RFRuleExtractor:
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
                     'recall': node_rule['recall'],
+                    'f1_score': node_rule['f1_score'],
                     'predict_class': node_rule['predict_class']
                 }
                 print_dicts.append(prn)
@@ -600,6 +607,7 @@ class RFRuleExtractor:
                                          accuracy=int(round(node_rule['accuracy'] * 100)),
                                          precision=int(round(node_rule['precision'] * 100)),
                                          recall=int(round(node_rule['recall'] * 100)),
+                                         f1_score=int(round(node_rule['f1_score'] * 100)),
                                          predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
@@ -618,6 +626,7 @@ class RFRuleExtractor:
             prn.append('accuracy({},{}).'.format(ptn_idx, int(round(rule_dict['accuracy'] * 100))))
             prn.append('precision({},{}).'.format(ptn_idx, int(round(rule_dict['precision'] * 100))))
             prn.append('recall({},{}).'.format(ptn_idx, int(round(rule_dict['recall'] * 100))))
+            prn.append('f1_score({},{}).'.format(ptn_idx, int(round(rule_dict['f1_score'] * 100))))
             prn.append('error_rate({},{}).'.format(ptn_idx, int(round(rule_dict['error_rate'] * 100))))
             prn.append('predict_class({},{}).'.format(ptn_idx, rule_dict['predict_class']))
             print_lines.append(' '.join(prn))
@@ -921,6 +930,9 @@ class LGBMRuleExtractor:
                                                #    pos_label=path_rule['predict_class'],
                                                average=self.metric_averaging,
                                                zero_division=0)
+            path_rule['f1_score'] = f1_score(y, y_pred,
+                                             # pos_label=path_rule['predict_class'],
+                                             average=self.metric_averaging, zero_division=0)
 
         return rules
 
@@ -1049,6 +1061,7 @@ class LGBMRuleExtractor:
                     'accuracy': node_rule['accuracy'],
                     'precision': node_rule['precision'],
                     'recall': node_rule['recall'],
+                    'f1_score': node_rule['f1_score'],
                     'predict_class': node_rule['predict_class']
                 }
                 print_dicts.append(prn)
@@ -1062,6 +1075,7 @@ class LGBMRuleExtractor:
                                          error_rate=int(round(node_rule['error_rate'] * 100)),
                                          precision=int(round(node_rule['precision'] * 100)),
                                          recall=int(round(node_rule['recall'] * 100)),
+                                         f1_score=int(round(node_rule['f1_score'] * 100)),
                                          predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
@@ -1081,6 +1095,7 @@ class LGBMRuleExtractor:
             prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
             prn.append('precision({},{}).'.format(rule_idx, int(round(rule_dict['precision'] * 100))))
             prn.append('recall({},{}).'.format(rule_idx, int(round(rule_dict['recall'] * 100))))
+            prn.append('f1_score({},{}).'.format(rule_idx, int(round(rule_dict['f1_score'] * 100))))
             prn.append('predict_class({},{}).'.format(rule_idx, rule_dict['predict_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)
