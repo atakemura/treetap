@@ -97,10 +97,11 @@ dominated :- valid(J), geq_f1_leq_size_ge_sup(J).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Optimization Over Answer Sets
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#maximize { P@2,I : selected(I), precision(I,P)}.
-#maximize { R@2,I : selected(I), recall(I,R)}.
-#maximize { A@2,I : selected(I), accuracy(I,A)}.
-#maximize { Sp,I : selected(I), support(I,Sp)}.
+#maximize { P,I : selected(I), precision(I,P)}.
+#maximize { R,I : selected(I), recall(I,R)}.
+#maximize { A,I : selected(I), accuracy(I,A)}.
+#maximize { F@2,I : selected(I), f1_score(I,F) }.
+#maximize { Sp@2,I : selected(I), support(I,Sp)}.
 #minimize { S,I : selected(I), size(I,S)}.
 #minimize { Cn,I : selected(I), selected(J), rule_overlap(I,J,Cn) }.
 #show selected/1.

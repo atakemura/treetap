@@ -127,7 +127,7 @@ def run_one_round(dataset_name, encoding,
     res_str = rf_extractor.transform(x_train, y_train)
     ext_end = timer()
 
-    exp_dir = './tmp/experiment_rf_dev'
+    exp_dir = './tmp/iclp2021/experiments_rf_f1size'
 
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
@@ -146,7 +146,10 @@ def run_one_round(dataset_name, encoding,
     # asprin_maximal    = './asp_encoding/maximal.lp'
     # asprin_closed     = './asp_encoding/closed.lp'
 
-    clingo_test =  './asp_encoding/clingo_moo_ruleset.lp'
+    clingo_test         = './asp_encoding/clingo_moo_ruleset.lp'
+    clingo_acc          = './asp_encoding/clingo_moo_ruleset_acc.lp'
+    clingo_prec         = './asp_encoding/clingo_moo_ruleset_prec.lp'
+    clingo_f1size       = './asp_encoding/clingo_moo_ruleset_f1size.lp'
     # asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal, 'closed': asprin_closed}
     # asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2, 'lexico': asprin_lexico}
 
@@ -155,7 +158,7 @@ def run_one_round(dataset_name, encoding,
         # o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
         #                     tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8'
         #                     ], capture_output=True, timeout=120)
-        o = subprocess.run(['clingo', clingo_test,
+        o = subprocess.run(['clingo', clingo_f1size,
                             tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8,split'
                             ], capture_output=True, timeout=600)
         clingo_completed = True
@@ -306,12 +309,13 @@ if __name__ == '__main__':
 
     if debug_mode:
         data = ['autism', 'breast',
-                # 'cars',
+                'cars',
                 'credit_australia',
-                #'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
-                #'credit_taiwan',
+                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
+                'credit_taiwan',
                 # 'eeg',
-                #'census',
+                'census',
+                'synthetic_1'
                 ]
         encodings = ['skyline']
         asprin_pref = ['pareto_1']

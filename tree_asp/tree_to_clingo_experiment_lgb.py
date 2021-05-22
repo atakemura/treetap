@@ -166,7 +166,7 @@ def run_one_round(dataset_name, encoding,
     print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
                                                                         round(ext_end - start)))
 
-    exp_dir = './tmp/synthetic_1'
+    exp_dir = './tmp/iclp2021/experiments_lgb_dom_maxacc'
 
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
@@ -188,6 +188,14 @@ def run_one_round(dataset_name, encoding,
     # asprin_closed     = './asp_encoding/closed.lp'
 
     clingo_test         = './asp_encoding/clingo_moo_ruleset.lp'
+    clingo_acc          = './asp_encoding/clingo_moo_ruleset_acc.lp'
+    clingo_prec         = './asp_encoding/clingo_moo_ruleset_prec.lp'
+    clingo_f1size       = './asp_encoding/clingo_moo_ruleset_f1size.lp'
+    clingo_acc_sup      = './asp_encoding/clingo_moo_ruleset_acc_support.lp'
+    clingo_f1_sup       = './asp_encoding/clingo_moo_ruleset_f1_support.lp'
+    clingo_dom_prec     = './asp_encoding/clingo_moo_ruleset_dom_3.lp'
+    clingo_dom_rec      = './asp_encoding/clingo_moo_ruleset_dom_4.lp'
+    clingo_dom_maxacc   = './asp_encoding/clingo_moo_ruleset_dom_6.lp'
 
     # clingo_test       = './asp_encoding/maximal_noclass.lp'
     # general_rule_test = './asp_encoding/rule_selection.lp'
@@ -203,7 +211,7 @@ def run_one_round(dataset_name, encoding,
         # o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
         #                     tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=16'
         #                     ], capture_output=True, timeout=3600)
-        o = subprocess.run(['clingo', clingo_test, #asprin_pareto_1,
+        o = subprocess.run(['clingo', clingo_dom_maxacc, #asprin_pareto_1,
                             tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8,split'
                             ], capture_output=True, timeout=600)
         clingo_completed = True

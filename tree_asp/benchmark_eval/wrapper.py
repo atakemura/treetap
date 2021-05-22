@@ -65,14 +65,14 @@ def optuna_random_forest(X, y):
                   'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.01),
                   'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy'])
                   }
-        rf = RandomForestClassifier(**params, random_state=SEED)
+        rf = RandomForestClassifier(**params, random_state=SEED, n_jobs=1)
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=SEED)
         rf.fit(x_train, y_train)
         y_pred = rf.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
         return acc
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback], n_jobs=-1)
     return study.best_params
 
 
@@ -191,15 +191,19 @@ def optuna_rulefit(X, y, rf_params=None):
                   'lin_standardise': trial.suggest_categorical('lin_standardise', [True, False]),
                   'lin_trim_quantile': trial.suggest_categorical('lin_trim_quantile', [True, False]),
         }
-        rf = RandomForestClassifier(n_jobs=-1, random_state=SEED, **rf_params)
-        rfit = RuleFit(tree_generator=rf, max_rules=500, rfmode='classify', n_jobs=-1, random_state=SEED, **params)
+        rf = RandomForestClassifier(n_jobs=1, random_state=SEED, **rf_params)
+        rfit = RuleFit(tree_generator=rf, max_rules=500, rfmode='classify', n_jobs=1, random_state=SEED, **params)
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=SEED)
         rfit.fit(x_train, y_train, feature_names=x_train.columns)
-        y_pred = rfit.predict(x_valid)
+        try:
+            y_pred = rfit.predict(x_valid)
+        # this sometimes raises IndexError rulefit.py:281 res_[:,coefs!=0]=res
+        except IndexError:
+            return 0   # skip this trial
         acc = accuracy_score(y_valid, y_pred)
         return acc
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback], n_jobs=-1)
     return study.best_params
 
 
@@ -223,6 +227,7 @@ def run_experiment(dataset_name):
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
         rf_start = timer()
+        print('rf optuna start...')
         if cat_X is not None:
             rf_best_params = optuna_random_forest(cat_X.iloc[train_idx], y_train)
             rf_optuna_end = timer()
@@ -257,6 +262,7 @@ def run_experiment(dataset_name):
         }
 
         lgb_start = timer()
+        print('lgb optuna start...')
         lgb_train = lgb.Dataset(data=x_train,
                                 label=y_train)
         lgb_valid = lgb.Dataset(data=x_valid,
@@ -302,47 +308,69 @@ def run_experiment(dataset_name):
         }
 
         rfit_start = timer()
+        print('rule fit start...')
         if cat_X is not None:
             rfit_best_params = optuna_rulefit(cat_X.iloc[train_idx], y_train, rf_params=rf_best_params)
             rfit_optuna_end = timer()
             rf = RandomForestClassifier(n_jobs=-1, random_state=SEED, **rf_best_params)
             rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=-1, random_state=SEED)
             rfit.fit(cat_X.iloc[train_idx], y_train, feature_names=cat_X.columns)
-            y_pred = rfit.predict(cat_X.iloc[valid_idx])
+            try:
+                y_pred = rfit.predict(cat_X.iloc[valid_idx])
+            except IndexError:
+                y_pred = None
         else:
             rfit_best_params = optuna_rulefit(x_train, y_train, rf_params=rf_best_params)
             rfit_optuna_end = timer()
             rf = RandomForestClassifier(n_jobs=-1, random_state=SEED, **rf_best_params)
             rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=-1, random_state=SEED)
             rfit.fit(x_train, y_train, feature_names=x_train.columns)
-            y_pred = rfit.predict(x_valid)
+            try:
+                y_pred = rfit.predict(x_valid)
+            except IndexError:
+                y_pred = None
         rfit_end = timer()
-        acc = accuracy_score(y_valid, y_pred)
-        print('rfit fold {} acc {}'.format(f_idx+1, round(acc, 2)))
-        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
-                           'precision': precision_score(y_valid, y_pred, average=metric_averaging),
-                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
-                           'auc': roc_auc_score(y_valid, y_pred)}
-        rules = rfit.get_rules()
-        rules = rules[rules.coef != 0].sort_values('support', ascending=False)
-        n_rules = rules.shape[0]
-        top_rules = rules.head(20)  # type: pd.DataFrame
-        rfit_dict = {
-            'dataset': dataset_name,
-            'fold': f_idx,
-            'model': 'RuleFit',
-            # 'rfit.model': str(rfit.model),
-            'rfit.best_20_rules_support': top_rules.to_json(orient='records'),
-            'rfit.n_rules': n_rules,
-            'rfit.best_params': rfit_best_params,
-            'vanilla_metrics': vanilla_metrics,
-            'total_time': rfit_end - rfit_start,
-            'optuna_time': rfit_optuna_end - rfit_start,
-            'fit_predict_time': rfit_end - rfit_optuna_end
-        }
+        if y_pred is None:  # RuleFit failed to find any rules in decision trees
+            rfit_dict = {
+                'dataset': dataset_name,
+                'fold': f_idx,
+                'model': 'RuleFit',
+                'rfit.best_20_rules_support': 'FAILED',
+                'rfit.n_rules': 'FAILED',
+                'rfit.best_params': 'None',
+                'vanilla_metrics': 0,
+                'total_time': rfit_end - rfit_start,
+                'optuna_time': rfit_optuna_end - rfit_start,
+                'fit_predict_time': rfit_end - rfit_optuna_end
+            }
+        else:  # success
+            acc = accuracy_score(y_valid, y_pred)
+            print('rfit fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+            vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+                               'precision': precision_score(y_valid, y_pred, average=metric_averaging),
+                               'recall': recall_score(y_valid, y_pred, average=metric_averaging),
+                               'f1': f1_score(y_valid, y_pred, average=metric_averaging),
+                               'auc': roc_auc_score(y_valid, y_pred)}
+            rules = rfit.get_rules()
+            rules = rules[rules.coef != 0].sort_values('support', ascending=False)
+            n_rules = rules.shape[0]
+            top_rules = rules.head(20)  # type: pd.DataFrame
+            rfit_dict = {
+                'dataset': dataset_name,
+                'fold': f_idx,
+                'model': 'RuleFit',
+                # 'rfit.model': str(rfit.model),
+                'rfit.best_20_rules_support': top_rules.to_json(orient='records'),
+                'rfit.n_rules': n_rules,
+                'rfit.best_params': rfit_best_params,
+                'vanilla_metrics': vanilla_metrics,
+                'total_time': rfit_end - rfit_start,
+                'optuna_time': rfit_optuna_end - rfit_start,
+                'fit_predict_time': rfit_end - rfit_optuna_end
+            }
 
-        exp_dir = '../tmp/experiment_benchmark'
+        # exp_dir = '../tmp/experiment_benchmark'
+        exp_dir = '../tmp/iclp2021/experiments_benchmark'
         log_json = os.path.join(exp_dir, 'output.json')
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
             out_log_json.write(json.dumps(rf_dict) + '\n')
@@ -359,6 +387,7 @@ def load_data(dataset_name):
     datasets = ['autism', 'breast', 'cars',
                 'credit_australia', 'heart', 'ionosphere',
                 'kidney', 'krvskp', 'voting', 'census', 'airline',
+                'synthetic_1',
                 'kdd99', 'eeg', 'credit_taiwan']
     if dataset_name in sklearn_data.keys():
         load_data_method = sklearn_data[dataset_name]
@@ -390,12 +419,15 @@ def load_data(dataset_name):
 
 if __name__ == '__main__':
     for data in [
-                 'autism', 'breast', 'cars', 'credit_australia', 'heart',
+                 'autism', 'breast',
+                 'cars',
+                 'credit_australia', 'heart',
                  'ionosphere', 'kidney', 'krvskp', 'voting',
                  'census',
                  # 'airline',
-                 'eeg',
+                 # 'eeg',
                  # 'kdd99',
+                 'synthetic_1',
                  'credit_taiwan'
                  ]:
         print('='*40, data, '='*40)

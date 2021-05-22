@@ -68,28 +68,16 @@ rule_overlap(I,J,Cn) :- selected(I), selected(J), I!=J,
     Cn = #count{Ci : Ci=Cj, condition(I,Ci), condition(J,Cj)}.
 
 % I is dominated by J
+ge_rec_geq_prec(J) :- selected(I), valid(J),
+    recall(I,Ri), recall(J,Rj), precision(I,Pi), precision(J,Pj),
+    Ri < Rj, Pi <= Pj.
 
-ge_f1_leq_size_geq_sup(J) :- selected(I), size(I,Si), size(J,Sj), valid(J),
-    f1_score(I,Fi), f1_score(J,Fj), 
-    support(I,Spi), support(J,Spj),
-    % shared(I,J,Cn), Cn > 1,
-    Fi < Fj, Si >= Sj, Spi <= Spj.
+geq_rec_ge_prec(J) :- selected(I), valid(J),
+    recall(I,Ri), recall(J,Rj), precision(I,Pi), precision(J,Pj),
+    Ri <= Rj, Pi < Pj.
 
-geq_f1_le_size_geq_sup(J) :- selected(I), size(I,Si), size(J,Sj), valid(J),
-    f1_score(I,Fi), f1_score(J,Fj), 
-    support(I,Spi), support(J,Spj),
-    % shared(I,J,Cn), Cn > 1,
-    Fi <= Fj, Si > Sj, Spi <= Spj.
-
-geq_f1_leq_size_ge_sup(J) :- selected(I), size(I,Si), size(J,Sj), valid(J),
-    f1_score(I,Fi), f1_score(J,Fj), 
-    support(I,Spi), support(J,Spj),
-    % shared(I,J,Cn), Cn > 1,
-    Fi <= Fj, Si >= Sj, Spi < Spj.
-
-dominated :- valid(J), ge_f1_leq_size_geq_sup(J).
-dominated :- valid(J), geq_f1_le_size_geq_sup(J).
-dominated :- valid(J), geq_f1_leq_size_ge_sup(J).
+dominated :- valid(J), ge_rec_geq_pred(J).
+dominated :- valid(J), geq_rec_ge_prec(J).
 
 % cannot be dominated
 :- dominated.
@@ -97,10 +85,11 @@ dominated :- valid(J), geq_f1_leq_size_ge_sup(J).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Optimization Over Answer Sets
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#maximize { P@2,I : selected(I), precision(I,P)}.
+#maximize { P,I : selected(I), precision(I,P)}.
 #maximize { R@2,I : selected(I), recall(I,R)}.
-#maximize { A@2,I : selected(I), accuracy(I,A)}.
-#maximize { Sp,I : selected(I), support(I,Sp)}.
-#minimize { S,I : selected(I), size(I,S)}.
+#maximize { A,I : selected(I), accuracy(I,A)}.
+#maximize { F,I : selected(I), f1_score(I,F)}.
+#maximize { Sp@2,I : selected(I), support(I,Sp)}.
+#minimize { S@2,I : selected(I), size(I,S)}.
 #minimize { Cn,I : selected(I), selected(J), rule_overlap(I,J,Cn) }.
 #show selected/1.
