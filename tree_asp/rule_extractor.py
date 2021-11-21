@@ -1066,17 +1066,17 @@ class LGBMRuleExtractor:
                 }
                 print_dicts.append(prn)
                 rl_obj_list.append(Rule(idx=rule_idx,
-                                         rule_str=rule_txt,
-                                         conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
+                                        rule_str=rule_txt,
+                                        conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
                                                    for (_, itm_idx_k) in _list_conditions],
-                                         support=int(round(node_rule['frequency_am'] * 100)),
-                                         size=len(_list_conditions),
-                                         accuracy=int(round(node_rule['accuracy'] * 100)),
-                                         error_rate=int(round(node_rule['error_rate'] * 100)),
-                                         precision=int(round(node_rule['precision'] * 100)),
-                                         recall=int(round(node_rule['recall'] * 100)),
-                                         f1_score=int(round(node_rule['f1_score'] * 100)),
-                                         predict_class=node_rule['predict_class']))
+                                        support=int(round(node_rule['frequency_am'] * 100)),
+                                        size=len(_list_conditions),
+                                        accuracy=int(round(node_rule['accuracy'] * 100)),
+                                        error_rate=int(round(node_rule['error_rate'] * 100)),
+                                        precision=int(round(node_rule['precision'] * 100)),
+                                        recall=int(round(node_rule['recall'] * 100)),
+                                        f1_score=int(round(node_rule['f1_score'] * 100)),
+                                        predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
         return print_dicts
