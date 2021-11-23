@@ -8,6 +8,8 @@ from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_sc
 from sklearn.tree import _tree
 from sklearn.utils.validation import check_is_fitted
 
+from copy import deepcopy
+from pprint import pprint
 from functools import reduce
 from multiprocessing import Pool
 from os import cpu_count
@@ -855,7 +857,9 @@ class LGBMRuleExtractor:
             rules[t_idx] = mod_rules[t_idx]
         return rules
 
-    def export_text_rule_lgb_parallel_sub(self, t_rules, X, y):
+    def export_text_rule_lgb_parallel_sub(self, t_rules, X, y, classes=None):
+        if classes is None:
+            classes = [0, 1]
         rules = t_rules
         for path_rule in rules.values():
             _tmp_dfs = []
@@ -1080,6 +1084,262 @@ class LGBMRuleExtractor:
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
         return print_dicts
+
+    def asp_str_from_dicts(self, list_dicts: list):
+        print_lines = []
+        for rule_dict in list_dicts:
+            prn = []
+            rule_idx = rule_dict['rule_idx']
+            prn.append('rule({}).'.format(rule_idx))
+            for x in rule_dict['conditions']:
+                prn.append('condition({},{}).'.format(x[0], x[1]))
+            prn.append('support({},{}).'.format(rule_idx, int(round(rule_dict['support'] * 100))))
+            prn.append('size({},{}).'.format(rule_idx, rule_dict['size']))
+            prn.append('accuracy({},{}).'.format(rule_idx, int(round(rule_dict['accuracy'] * 100))))
+            prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
+            prn.append('precision({},{}).'.format(rule_idx, int(round(rule_dict['precision'] * 100))))
+            prn.append('recall({},{}).'.format(rule_idx, int(round(rule_dict['recall'] * 100))))
+            prn.append('f1_score({},{}).'.format(rule_idx, int(round(rule_dict['f1_score'] * 100))))
+            prn.append('predict_class({},{}).'.format(rule_idx, rule_dict['predict_class']))
+            print_lines.append(' '.join(prn))
+        return_str = '\n'.join(print_lines)
+        return return_str
+
+
+class LGBMLocalRuleExtractor(LGBMRuleExtractor):
+    def __init__(self, verbose=False):
+        super().__init__(verbose)
+        self.non_rule_keys.append('leaf_idx')
+
+    def fit(self, X, y, model=None, feature_names=None, **params):
+        if not isinstance(model, lgb.Booster):
+            raise ValueError('unsupported model type, expected lgb.Booster but got {}'.format(type(model)))
+
+        if feature_names is None:
+            self.feature_names = ['feature_{}'.format(i) for i in range(X.shape[0])]
+        else:
+            self.feature_names = feature_names
+
+        num_classes = y.nunique()
+        self.metric_averaging = 'micro' if num_classes > 2 else 'binary'
+
+        model_dump = model.dump_model()
+        self.num_tree_per_iteration = model_dump['num_tree_per_iteration']
+
+        with timer_exec('[LGBM Local RuleExtractor] LGBMTree init'):
+            with Pool(processes=cpu_count()) as pool:
+                lgbtrees = pool.map(LGBMTree, model_dump['tree_info'])
+        # lgbtrees = [LGBMTree(x) for x in model_dump['tree_info']]
+
+        rules = {}
+        with timer_exec('[LGBM Local RuleExtractor] export text rule tree'):
+            with Pool(processes=cpu_count()) as pool:
+                _tmp_rules = pool.map(self.export_text_rule_tree, lgbtrees)
+
+        # for t_idx, tree in enumerate(lgbtrees):
+        #     _, rules[t_idx] = self.export_text_rule_tree(tree)
+        with timer_exec('[LGBM Local RuleExtractor] enumerate rules'):
+            for t_idx, tree in enumerate(_tmp_rules):
+                _, rules[t_idx] = _tmp_rules[t_idx]
+
+        with timer_exec('[LGBM Local RuleExtractor] parallel export text rule'):
+            rules = self.export_text_rule_lgb_parallel(rules, X, y)
+        # rules = self.export_text_rule_lgb(rules, X, y)
+
+        with timer_exec('[LGBM Local RuleExtractor] asp dict from rules'):
+            self.asp_dict_from_rules(rules)
+
+        # with timer_exec('[LGBM Local RuleExtractor] print asp'):
+        #     print_str = self.asp_str_from_dicts(printable_dicts)
+        # self.asp_fact_str = print_str
+        self.fitted_ = True
+        return self
+
+    def export_text_rule_lgb_parallel(self, tree_rules, X, y):
+        if y.nunique() != 2:
+            raise RuntimeError('only binary classification is supported at this moment')
+        # {tree_idx: {leaf_idx: {condition_1: 1, condition_2: 1, ...},
+        #             leaf_idx: {...}},
+        #  tree_idx: {leaf_idx: {...},...},
+        #  ...}
+        _tmp_rules = tree_rules
+        rules = {}
+        classes = y.unique()
+        # adding rule statistics
+        with Pool(cpu_count()) as pool:
+            # make same number of x y
+            mod_rules = pool.starmap(self.export_text_rule_lgb_parallel_sub,
+                                     ((t_rules, X, y, classes) for t_rules in _tmp_rules.values()))
+        for t_idx, tree in enumerate(mod_rules):
+            rules[t_idx] = mod_rules[t_idx]
+        return rules
+
+    def export_text_rule_lgb_parallel_sub(self, t_rules, X, y, classes=None):
+        if classes is None:
+            classes = [0, 1]
+
+        # {leaf_idx: {condition_1: 1, condition_2: 1, ...},
+        #  leaf_idx: {}, ...}
+        ret_rules = dict()
+        cond_cache = dict()
+
+        for cls in classes:
+            for leaf_idx, t_path_rule in t_rules.items():
+                path_rule = deepcopy(t_path_rule)
+                _tmp_dfs = []
+                for rule_key in path_rule.keys():
+                    # skip non-conditions
+                    if rule_key in self.non_rule_keys:
+                        continue
+                    # collect conditions and boolean mask
+                    else:
+                        if rule_key in cond_cache:
+                            _tmp_mask = cond_cache[rule_key]
+                        elif LT_PATTERN in rule_key:
+                            _rule_field, _rule_threshold = rule_key.rsplit(LT_PATTERN, 1)
+                            _tmp_mask = getattr(X[_rule_field], 'lt')(float(_rule_threshold))
+                        elif LE_PATTERN in rule_key:
+                            _rule_field, _rule_threshold = rule_key.rsplit(LE_PATTERN, 1)
+                            _tmp_mask = getattr(X[_rule_field], 'le')(float(_rule_threshold))
+                        elif GT_PATTERN in rule_key:
+                            _rule_field, _rule_threshold = rule_key.rsplit(GT_PATTERN, 1)
+                            _tmp_mask = getattr(X[_rule_field], 'gt')(float(_rule_threshold))
+                        elif GE_PATTERN in rule_key:
+                            _rule_field, _rule_threshold = rule_key.rsplit(GE_PATTERN, 1)
+                            _tmp_mask = getattr(X[_rule_field], 'ge')(float(_rule_threshold))
+                        elif EQ_PATTERN in rule_key:
+                            _rule_field, _rule_threshold = rule_key.rsplit(EQ_PATTERN, 1)
+                            inverse_map = dict(enumerate(X[_rule_field].cat.categories))
+                            # rule threshold in this case can be like '0||1||2'
+                            _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
+                            _tmp_mask = getattr(X[_rule_field], 'isin')(_cat_th)
+                        elif NEQ_PATTERN in rule_key:
+                            _rule_field, _rule_threshold = rule_key.rsplit(NEQ_PATTERN, 1)
+                            inverse_map = dict(enumerate(X[_rule_field].cat.categories))
+                            # rule threshold in this case can be like '0||1||2'
+                            _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
+                            # note the bitwise complement ~
+                            _tmp_mask = ~ getattr(X[_rule_field], 'isin')(_cat_th)
+                        else:
+                            raise ValueError('No key found')
+                        _tmp_dfs.append(_tmp_mask)
+                # reduce boolean mask
+                mask_res = reduce(and_, _tmp_dfs)
+
+                path_rule['leaf_idx'] = leaf_idx
+                path_rule['predict_class'] = cls
+                y_pred = np.zeros(y.shape)
+                y_pred[mask_res] = cls
+                # y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
+                path_rule['condition_length'] = len(_tmp_dfs)
+                path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
+                path_rule['frequency'] = len(y[mask_res])
+                path_rule['error_rate'] = 1 - accuracy_score(y, y_pred)
+                path_rule['accuracy'] = accuracy_score(y, y_pred)
+                path_rule['precision'] = precision_score(y, y_pred,
+                                                         #  pos_label=path_rule['predict_class'],
+                                                         average=self.metric_averaging,
+                                                         zero_division=0)
+                path_rule['recall'] = recall_score(y, y_pred,
+                                                   #    pos_label=path_rule['predict_class'],
+                                                   average=self.metric_averaging,
+                                                   zero_division=0)
+                path_rule['f1_score'] = f1_score(y, y_pred,
+                                                 # pos_label=path_rule['predict_class'],
+                                                 average=self.metric_averaging, zero_division=0)
+                ret_rules['{}_{}'.format(leaf_idx, cls)] = path_rule
+
+        # return {leaf_idx+cls: {accuracy: , recall: ,...}}
+        # e.g. {6_1: {accuracy: ..., recall: ...,}, 7_1: {...}, ...}
+        return ret_rules
+
+    def asp_dict_from_rules(self, rules: dict):
+        """
+        Construct intermediate list of dicts that can be processed into ASP strings.
+        In this implementation, duplicate patterns are merged by aggregating the support (frequency).
+
+        Args:
+            rules: dict of dicts containing rules
+
+        Returns:
+            list of dicts
+        """
+        rule_list = []
+
+        condition_list = []
+        print_dicts = []
+
+        # pattern and item instances
+        rl_obj_list = []
+        lit_obj_list = []
+
+        path_rules = {}
+
+        # {tree_idx: {leaf_idx_class: {}, leaf_idx_class: {}}, tree_idx: {}, ...}
+        for t_idx, t in rules.items():
+            for node_idx, node_rule in t.items():
+                # if not node_rule['is_tree_max']:
+                #     continue  # skip non_max case
+
+                # pattern
+                rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
+                rule_list.append(rule_txt)
+                rule_idx = len(rule_list) - 1
+
+                # items
+                _list_conditions = []
+                for k in node_rule.keys():
+                    if k not in self.non_rule_keys:
+                        if k in condition_list:
+                            lit_idx = condition_list.index(k)
+                        else:
+                            condition_list.append(k)
+                            lit_idx = len(condition_list) - 1
+                            lit_obj_list.append(Condition(lit_idx, k))
+                        _list_conditions.append((rule_idx, lit_idx))
+                if self.verbose:
+                    print('rule_id {} class={}: {}'.format(rule_idx, node_rule['predict_class'], rule_txt))
+                    print('conditions: {}'.format(['condition{}'.format(x) for x in _list_conditions]))
+                    print('support: {}'.format(node_rule['frequency']))
+                    print('=' * 30 + '\n')
+
+                # print_dicts.append(prn)
+                rule = Rule(idx=rule_idx,
+                            rule_str=rule_txt,
+                            conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
+                                       for (_, itm_idx_k) in _list_conditions],
+                            support=int(round(node_rule['frequency_am'] * 100)),
+                            size=len(_list_conditions),
+                            accuracy=int(round(node_rule['accuracy'] * 100)),
+                            error_rate=int(round(node_rule['error_rate'] * 100)),
+                            precision=int(round(node_rule['precision'] * 100)),
+                            recall=int(round(node_rule['recall'] * 100)),
+                            f1_score=int(round(node_rule['f1_score'] * 100)),
+                            predict_class=node_rule['predict_class'])
+                rl_obj_list.append(rule)
+
+                # create new dict
+                prn = {
+                    'rule_idx': rule_idx,
+                    'rule': rule,
+                    'conditions': [x for x in _list_conditions],
+                    'support': node_rule['frequency_am'],
+                    'size': len(_list_conditions),
+                    'error_rate': node_rule['error_rate'],
+                    'accuracy': node_rule['accuracy'],
+                    'precision': node_rule['precision'],
+                    'recall': node_rule['recall'],
+                    'f1_score': node_rule['f1_score'],
+                    'predict_class': node_rule['predict_class']
+                }
+
+                # node_idx already contains leaf_idx and class
+                tree_rule_idx = '{}_{}'.format(t_idx, node_idx)
+                path_rules[tree_rule_idx] = prn
+        self.all_path_rule = path_rules
+        self.rules_ = rl_obj_list
+        self.conditions_ = lit_obj_list
+        return None
 
     def asp_str_from_dicts(self, list_dicts: list):
         print_lines = []

@@ -14,7 +14,7 @@ from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
 
-from rule_extractor import LGBMRuleExtractor
+from rule_extractor import LGBMRuleExtractor, LGBMLocalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
@@ -34,6 +34,7 @@ def run_experiment(dataset_name, encoding):
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
         run_one_round(dataset_name, encoding,
                       train_idx, valid_idx, X, y, feat, fold=f_idx)
+        assert False
 
 
 def optuna_lgb(X, y, static_params):
@@ -344,6 +345,22 @@ def run_one_round(dataset_name, encoding,
         }
     with open(log_json, 'a', encoding='utf-8') as out_log_json:
         out_log_json.write(json.dumps(out_dict)+'\n')
+
+    # local explanation using rules (not through clingo because it's not supposed to be a global approximation)
+    print('local explanation start')
+    le_start = timer()
+
+    local_lgb_extractor = LGBMLocalRuleExtractor()
+    local_lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
+    local_res_str = local_lgb_extractor.transform(x_train, y_train)
+
+    local_tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out_local.txt'.format(experiment_tag))
+    with open(local_tmp_pattern_file, 'w', encoding='utf-8') as outfile:
+        outfile.write(local_res_str)
+
+    le_end = timer()
+    print('le completed {} seconds | {} from start'.format(round(le_end - le_start),
+                                                           round(le_end - start)))
 
     # this is for qualitative answer pattern only
     verbose = True
