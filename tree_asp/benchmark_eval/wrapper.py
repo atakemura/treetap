@@ -370,7 +370,7 @@ def run_experiment(dataset_name):
             }
 
         # exp_dir = '../tmp/experiment_benchmark'
-        exp_dir = '../tmp/iclp2021/experiments_benchmark'
+        exp_dir = '../tmp/journal/benchmark'
         log_json = os.path.join(exp_dir, 'output.json')
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
             out_log_json.write(json.dumps(rf_dict) + '\n')

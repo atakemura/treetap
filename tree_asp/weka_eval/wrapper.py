@@ -104,6 +104,8 @@ class WekaJ48:
             self.arff_attr = attrs
         else:
             attrs = self.arff_attr
+        # trick to keep int representation
+        df[categorical] = df[categorical].astype('O')
         data = list(df.values)
         result = {
             'attributes': attrs,
@@ -201,6 +203,8 @@ class WekaRIPPER:
             self.arff_attr = attrs
         else:
             attrs = self.arff_attr
+        # trick to keep int representation
+        df[categorical] = df[categorical].astype('O')
         data = list(df.values)
         result = {
             'attributes': attrs,
@@ -309,6 +313,8 @@ class WekaPART:
             self.arff_attr = attrs
         else:
             attrs = self.arff_attr
+        # trick to keep int representation
+        df[categorical] = df[categorical].astype('O')
         data = list(df.values)
         result = {
             'attributes': attrs,
@@ -599,7 +605,7 @@ def run_experiment(dataset_name):
             'fit_predict_time': part_end - part_optuna_end
         }
 
-        exp_dir = '../tmp/experiment_weka'
+        exp_dir = '../tmp/journal/weka'
         log_json = os.path.join(exp_dir, 'output.json')
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
             out_log_json.write(json.dumps(j48_dict) + '\n')
@@ -676,12 +682,15 @@ def load_data(dataset_name):
 if __name__ == '__main__':
     jvm.start()
     for data in [
-                 'autism', 'breast', 'cars', 'credit_australia', 'heart',
+                 'autism', 'breast', 'cars',
+                 'credit_australia',
+                 'heart',
                  'ionosphere', 'kidney', 'krvskp', 'voting',
                  'census',
                  # 'airline',
                  'eeg',
                  # 'kdd99',
+                 'synthetic_1',
                  'credit_taiwan'
                  ]:
         print('='*40, data, '='*40)
