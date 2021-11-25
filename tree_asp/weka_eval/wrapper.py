@@ -650,6 +650,7 @@ def load_data(dataset_name):
     datasets = ['autism', 'breast', 'cars',
                 'credit_australia', 'heart', 'ionosphere',
                 'kidney', 'krvskp', 'voting', 'census', 'airline',
+                'synthetic_1',
                 'kdd99', 'eeg', 'credit_taiwan']
     if dataset_name in sklearn_data.keys():
         load_data_method = sklearn_data[dataset_name]
