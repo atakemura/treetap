@@ -25,7 +25,7 @@ class Rule:
             self.error_rate, self.precision, self.recall, self.f1_score, self.predict_class)
 
     def __eq__(self, other):
-        return self.rule_str == other.rule_str
+        return (self.rule_str == other.rule_str) and (self.predict_class == other.predict_class)
 
     def __hash__(self):
         return hash(self.rule_str)
