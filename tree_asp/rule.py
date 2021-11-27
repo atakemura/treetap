@@ -25,7 +25,10 @@ class Rule:
             self.error_rate, self.precision, self.recall, self.f1_score, self.predict_class)
 
     def __eq__(self, other):
-        return (self.idx == other.idx) and (self.rule_str == other.rule_str)
+        return self.rule_str == other.rule_str
+
+    def __hash__(self):
+        return hash(self.rule_str)
 
 
 class Condition:
@@ -40,4 +43,7 @@ class Condition:
         return 'Condition({}, {})'.format(self.idx, self.condition_str)
 
     def __eq__(self, other):
-        return (self.idx == other.idx) and (self.condition_str == other.condition_str)
+        return self.condition_str == other.condition_str
+
+    def __hash__(self):
+        return hash(self.condition_str)
