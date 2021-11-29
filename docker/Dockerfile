@@ -41,6 +41,9 @@ RUN pip install pyfim
 # rulefit
 RUN pip install git+git://github.com/atakemura/rulefit.git@fix-pandas-error
 
+# anchor
+RUN pip install anchor-exp
+
 RUN apt install -y openssh-server
 
 RUN ( \
