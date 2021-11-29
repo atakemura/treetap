@@ -360,15 +360,15 @@ def load_data(dataset_name):
 if __name__ == '__main__':
     for data in [
                  'autism', 'breast',
-                 # 'cars',
-                 # 'credit_australia', 'heart',
-                 # 'ionosphere', 'kidney', 'krvskp', 'voting',
-                 # 'census',
-                 # # 'airline',
-                 # # 'eeg',
-                 # # 'kdd99',
-                 # 'synthetic_1',
-                 # 'credit_taiwan'
+                 'cars',
+                 'credit_australia', 'heart',
+                 'ionosphere', 'kidney', 'krvskp', 'voting',
+                 'census',
+                 # 'airline',
+                 # 'eeg',
+                 # 'kdd99',
+                 'synthetic_1',
+                 'credit_taiwan'
                  ]:
         print('='*40, data, '='*40)
         run_experiment(data)
