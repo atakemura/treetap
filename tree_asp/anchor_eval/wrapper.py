@@ -206,10 +206,10 @@ def run_experiment(dataset_name):
             fit_anchor = np.where(np.all(mat_x_valid[:, ae.features()] == mat_x_valid[v_idx][ae.features()], axis=1))[0]
             cov = fit_anchor.shape[0] / float(mat_x_valid.shape[0])
             prc = np.mean(rf.predict(mat_x_valid[fit_anchor]) == rf.predict(mat_x_valid[v_idx].reshape(1, -1)))
+            rf_train_covs.append(ae.coverage())
+            rf_train_prcs.append(ae.precision())
             rf_valid_covs.append(cov)
             rf_valid_prcs.append(prc)
-            rf_train_covs.append(ae.coverage())
-            rf_train_covs.append(ae.precision())
 
         rf_anchor_end = timer()
 
@@ -278,16 +278,17 @@ def run_experiment(dataset_name):
         lgb_train_prcs = []
         lgb_valid_covs = []
         lgb_valid_prcs = []
+
         mat_x_valid = x_valid.sample(100, replace=True).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
             ae = anchor_explain_single(mat_x_valid[v_idx, :], explainer, lgb_model)
             fit_anchor = np.where(np.all(mat_x_valid[:, ae.features()] == mat_x_valid[v_idx][ae.features()], axis=1))[0]
             cov = fit_anchor.shape[0] / float(mat_x_valid.shape[0])
-            prc = np.mean(rf.predict(mat_x_valid[fit_anchor]) == rf.predict(mat_x_valid[v_idx].reshape(1, -1)))
+            prc = np.mean(lgb_model.predict(mat_x_valid[fit_anchor]) == lgb_model.predict(mat_x_valid[v_idx].reshape(1, -1)))
+            lgb_train_covs.append(ae.coverage())
+            lgb_train_prcs.append(ae.precision())
             lgb_valid_covs.append(cov)
             lgb_valid_prcs.append(prc)
-            lgb_train_covs.append(ae.coverage())
-            lgb_train_covs.append(ae.precision())
 
         lgb_anchor_end = timer()
         lgb_end = timer()
