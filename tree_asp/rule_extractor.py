@@ -945,64 +945,64 @@ class LGBMRuleExtractor:
 
         return rules
 
-    def export_text_rule_lgb(self, tree_rules, X, y):
-        rules = tree_rules
-        # adding rule statistics
-        for t_idx, t_rules in rules.items():
-            for path_rule in t_rules.values():
-                _tmp_dfs = []
-                for rule_key in path_rule.keys():
-                    # skip non-conditions
-                    if rule_key in self.non_rule_keys:
-                        continue
-                    # collect conditions and boolean mask
-                    else:
-                        if LT_PATTERN in rule_key:
-                            _rule_field, _rule_threshold = rule_key.rsplit(LT_PATTERN, 1)
-                            _tmp_dfs.append(getattr(X[_rule_field], 'lt')(float(_rule_threshold)))
-                        elif LE_PATTERN in rule_key:
-                            _rule_field, _rule_threshold = rule_key.rsplit(LE_PATTERN, 1)
-                            _tmp_dfs.append(getattr(X[_rule_field], 'le')(float(_rule_threshold)))
-                        elif GT_PATTERN in rule_key:
-                            _rule_field, _rule_threshold = rule_key.rsplit(GT_PATTERN, 1)
-                            _tmp_dfs.append(getattr(X[_rule_field], 'gt')(float(_rule_threshold)))
-                        elif GE_PATTERN in rule_key:
-                            _rule_field, _rule_threshold = rule_key.rsplit(GE_PATTERN, 1)
-                            _tmp_dfs.append(getattr(X[_rule_field], 'ge')(float(_rule_threshold)))
-                        elif EQ_PATTERN in rule_key:
-                            _rule_field, _rule_threshold = rule_key.rsplit(EQ_PATTERN, 1)
-                            inverse_map = dict(enumerate(X[_rule_field].cat.categories))
-                            # rule threshold in this case can be like '0||1||2'
-                            _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
-                            _tmp_dfs.append(getattr(X[_rule_field], 'isin')(_cat_th))
-                        elif NEQ_PATTERN in rule_key:
-                            _rule_field, _rule_threshold = rule_key.rsplit(NEQ_PATTERN, 1)
-                            inverse_map = dict(enumerate(X[_rule_field].cat.categories))
-                            # rule threshold in this case can be like '0||1||2'
-                            _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
-                            # note the bitwise complement ~
-                            _tmp_dfs.append(~ getattr(X[_rule_field], 'isin')(_cat_th))
-                        else:
-                            raise ValueError('No key found')
-                # reduce boolean mask
-                mask_res = reduce(and_, _tmp_dfs)
-                # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-                # path_rule['predict_class'] = y[mask_res].mode()[0]
-                path_rule['predict_class'] = 1
-                y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
-                path_rule['condition_length'] = len(_tmp_dfs)
-                path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
-                path_rule['frequency'] = len(y[mask_res])  # coverage
-                path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
-                path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
-                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
-                                                         average=self.metric_averaging)
-                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
-                                                   average=self.metric_averaging)
-                if y.nunique() != 2:
-                    raise RuntimeError('only binary classification is supported at this moment')
-
-        return rules
+    # def export_text_rule_lgb(self, tree_rules, X, y):
+    #     rules = tree_rules
+    #     # adding rule statistics
+    #     for t_idx, t_rules in rules.items():
+    #         for path_rule in t_rules.values():
+    #             _tmp_dfs = []
+    #             for rule_key in path_rule.keys():
+    #                 # skip non-conditions
+    #                 if rule_key in self.non_rule_keys:
+    #                     continue
+    #                 # collect conditions and boolean mask
+    #                 else:
+    #                     if LT_PATTERN in rule_key:
+    #                         _rule_field, _rule_threshold = rule_key.rsplit(LT_PATTERN, 1)
+    #                         _tmp_dfs.append(getattr(X[_rule_field], 'lt')(float(_rule_threshold)))
+    #                     elif LE_PATTERN in rule_key:
+    #                         _rule_field, _rule_threshold = rule_key.rsplit(LE_PATTERN, 1)
+    #                         _tmp_dfs.append(getattr(X[_rule_field], 'le')(float(_rule_threshold)))
+    #                     elif GT_PATTERN in rule_key:
+    #                         _rule_field, _rule_threshold = rule_key.rsplit(GT_PATTERN, 1)
+    #                         _tmp_dfs.append(getattr(X[_rule_field], 'gt')(float(_rule_threshold)))
+    #                     elif GE_PATTERN in rule_key:
+    #                         _rule_field, _rule_threshold = rule_key.rsplit(GE_PATTERN, 1)
+    #                         _tmp_dfs.append(getattr(X[_rule_field], 'ge')(float(_rule_threshold)))
+    #                     elif EQ_PATTERN in rule_key:
+    #                         _rule_field, _rule_threshold = rule_key.rsplit(EQ_PATTERN, 1)
+    #                         inverse_map = dict(enumerate(X[_rule_field].cat.categories))
+    #                         # rule threshold in this case can be like '0||1||2'
+    #                         _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
+    #                         _tmp_dfs.append(getattr(X[_rule_field], 'isin')(_cat_th))
+    #                     elif NEQ_PATTERN in rule_key:
+    #                         _rule_field, _rule_threshold = rule_key.rsplit(NEQ_PATTERN, 1)
+    #                         inverse_map = dict(enumerate(X[_rule_field].cat.categories))
+    #                         # rule threshold in this case can be like '0||1||2'
+    #                         _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
+    #                         # note the bitwise complement ~
+    #                         _tmp_dfs.append(~ getattr(X[_rule_field], 'isin')(_cat_th))
+    #                     else:
+    #                         raise ValueError('No key found')
+    #             # reduce boolean mask
+    #             mask_res = reduce(and_, _tmp_dfs)
+    #             # these depend on the entire training data, not on the bootstrapped data that the original rf uses
+    #             # path_rule['predict_class'] = y[mask_res].mode()[0]
+    #             path_rule['predict_class'] = 1
+    #             y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
+    #             path_rule['condition_length'] = len(_tmp_dfs)
+    #             path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
+    #             path_rule['frequency'] = len(y[mask_res])  # coverage
+    #             path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
+    #             path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
+    #             path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+    #                                                      average=self.metric_averaging)
+    #             path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+    #                                                average=self.metric_averaging)
+    #             if y.nunique() != 2:
+    #                 raise RuntimeError('only binary classification is supported at this moment')
+    #
+    #     return rules
 
     def asp_dict_from_rules(self, rules: dict):
         """
