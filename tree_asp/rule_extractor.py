@@ -9,10 +9,11 @@ from sklearn.tree import _tree
 from sklearn.utils.validation import check_is_fitted
 
 from copy import deepcopy
+from collections import defaultdict
 from pprint import pprint
 from functools import reduce
 from multiprocessing import Pool
-from os import cpu_count
+from psutil import cpu_count
 from operator import and_
 
 from rule import Rule, Condition
@@ -656,6 +657,7 @@ class LGBMTree:
         self.thresholds = [np.nan] * (2 * num_parents + 1)
         self.values = [-2] * (2 * num_parents + 1)
         self.node_sample_weight = np.empty((2 * num_parents + 1), dtype=np.float64)
+        self.leaf_indices = np.empty((2 * num_parents + 1), dtype=np.int32)  # this is lightgbm's internal leaf index
         visited, queue = [], [start]
         while queue:
             vertex = queue.pop(0)
@@ -683,6 +685,7 @@ class LGBMTree:
                     self.thresholds[vertex_split_index] = vertex['threshold']
                     self.values[vertex_split_index] = [vertex['internal_value']]
                     self.node_sample_weight[vertex_split_index] = vertex['internal_count']
+                    self.leaf_indices[vertex_split_index] = -1
                     visited.append(vertex_split_index)
                     queue.append(vertex['left_child'])
                     queue.append(vertex['right_child'])
@@ -704,6 +707,7 @@ class LGBMTree:
                     self.node_sample_weight[vertex_leaf_node_index] = vertex['leaf_count']
                 except KeyError:
                     self.node_sample_weight[vertex_leaf_node_index] = 0
+                self.leaf_indices[vertex_leaf_node_index] = vertex_leaf_index
         self.values = np.asarray(self.values)
         # self.values = np.multiply(self.values, scaling)  # scaling is not supported
 
@@ -716,7 +720,7 @@ class LGBMRuleExtractor:
         self.non_rule_keys = ['class', 'condition_length', 'error_rate',
                               'precision', 'recall', 'f1_score',
                               'frequency', 'frequency_am', 'predict_class', 'value',
-                              'is_tree_max', 'accuracy']
+                              'is_tree_max', 'accuracy', 'leaf_index']
         self.asp_fact_str = None
         self.fitted_ = False
         self.rules_ = None
@@ -740,13 +744,13 @@ class LGBMRuleExtractor:
         self.num_tree_per_iteration = model_dump['num_tree_per_iteration']
 
         with timer_exec('[LGBM RuleExtractor] LGBMTree init'):
-            with Pool(processes=cpu_count()) as pool:
+            with Pool(processes=cpu_count(logical=False)) as pool:
                 lgbtrees = pool.map(LGBMTree, model_dump['tree_info'])
         # lgbtrees = [LGBMTree(x) for x in model_dump['tree_info']]
 
         rules = {}
         with timer_exec('[LGBM RuleExtractor] export text rule tree'):
-            with Pool(processes=cpu_count()) as pool:
+            with Pool(processes=cpu_count(logical=False)) as pool:
                 _tmp_rules = pool.map(self.export_text_rule_tree, lgbtrees)
 
         # for t_idx, tree in enumerate(lgbtrees):
@@ -843,13 +847,14 @@ class LGBMRuleExtractor:
                     rule_dict['is_tree_max'] = True
                 else:
                     rule_dict['is_tree_max'] = False
+                rule_dict['leaf_index'] = tree.leaf_indices[node]  # lgb internal leaf index
         return rule_dict
 
     def export_text_rule_lgb_parallel(self, tree_rules, X, y):
         _tmp_rules = tree_rules
         rules = {}
         # adding rule statistics
-        with Pool(cpu_count()) as pool:
+        with Pool(processes=cpu_count(logical=False)) as pool:
             # make same number of x y
             mod_rules = pool.starmap(self.export_text_rule_lgb_parallel_sub,
                                      ((t_rules, X, y) for t_rules in _tmp_rules.values()))
@@ -1109,7 +1114,7 @@ class LGBMRuleExtractor:
 class LGBMLocalRuleExtractor(LGBMRuleExtractor):
     def __init__(self, verbose=False):
         super().__init__(verbose)
-        self.non_rule_keys.append('leaf_idx')
+        # self.non_rule_keys.append('leaf_idx')
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         if not isinstance(model, lgb.Booster):
@@ -1127,13 +1132,13 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
         self.num_tree_per_iteration = model_dump['num_tree_per_iteration']
 
         with timer_exec('[LGBM Local RuleExtractor] LGBMTree init'):
-            with Pool(processes=cpu_count()) as pool:
+            with Pool(processes=cpu_count(logical=False)) as pool:
                 lgbtrees = pool.map(LGBMTree, model_dump['tree_info'])
         # lgbtrees = [LGBMTree(x) for x in model_dump['tree_info']]
 
         rules = {}
         with timer_exec('[LGBM Local RuleExtractor] export text rule tree'):
-            with Pool(processes=cpu_count()) as pool:
+            with Pool(processes=cpu_count(logical=False)) as pool:
                 _tmp_rules = pool.map(self.export_text_rule_tree, lgbtrees)
 
         # for t_idx, tree in enumerate(lgbtrees):
@@ -1155,6 +1160,41 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
         self.fitted_ = True
         return self
 
+    def transform(self, X, y=None, model=None, **params):
+        # np.array([NSample x [NTree])
+        leaf_indices = model.predict(X, pred_leaf=True)
+        cls = (model.predict(X) > 0.5).astype(int)
+
+        # pprint(self.all_path_rule)
+        # pprint(leaf_indices)
+
+        # like leaf indices but instead rule indices
+        rule_indices = np.zeros_like(leaf_indices) - 1
+        # inverted index of rule -> list(tree_idx)
+        rule_tree_indices = list()
+        candidate_asp_rules = list()
+
+        # todo: parallelize
+        for s_idx, sample_leaf_idx in enumerate(leaf_indices):
+            rule_tree_dict = defaultdict(list)
+            rule_dict_list = list()
+            _c = cls[s_idx]
+            for t_idx, leaf in enumerate(sample_leaf_idx):
+                key = '{}_{}_{}'.format(t_idx, leaf, _c)
+                rule = self.all_path_rule.get(key)
+                if rule is None:
+                    assert False, 'No path for such key: {}'.format(key)
+
+                rule_indices[s_idx, sample_leaf_idx] = rule['rule'].idx
+                rule_tree_dict[rule['rule'].idx].append(t_idx)
+                if rule not in rule_dict_list:
+                    rule_dict_list.append(rule)
+
+            rule_tree_indices.append(dict(rule_tree_dict))
+            candidate_asp_rules.append(self.asp_str_from_dicts(rule_dict_list))
+
+        return candidate_asp_rules
+
     def export_text_rule_lgb_parallel(self, tree_rules, X, y):
         if y.nunique() != 2:
             raise RuntimeError('only binary classification is supported at this moment')
@@ -1166,7 +1206,7 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
         rules = {}
         classes = y.unique()
         # adding rule statistics
-        with Pool(cpu_count()) as pool:
+        with Pool(processes=cpu_count(logical=False)) as pool:
             # make same number of x y
             mod_rules = pool.starmap(self.export_text_rule_lgb_parallel_sub,
                                      ((t_rules, X, y, classes) for t_rules in _tmp_rules.values()))
@@ -1184,7 +1224,7 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
         cond_cache = dict()
 
         for cls in classes:
-            for leaf_idx, t_path_rule in t_rules.items():
+            for _, t_path_rule in t_rules.items():
                 path_rule = deepcopy(t_path_rule)
                 _tmp_dfs = []
                 for rule_key in path_rule.keys():
@@ -1226,9 +1266,12 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
                 # reduce boolean mask
                 mask_res = reduce(and_, _tmp_dfs)
 
-                path_rule['leaf_idx'] = leaf_idx
+                # path_rule['leaf_idx'] = leaf_idx
                 path_rule['predict_class'] = cls
-                y_pred = np.zeros(y.shape)
+                if cls == 1:
+                    y_pred = np.zeros(y.shape)
+                else:
+                    y_pred = np.ones(y.shape)
                 y_pred[mask_res] = cls
                 # y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
                 path_rule['condition_length'] = len(_tmp_dfs)
@@ -1247,7 +1290,7 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
                 path_rule['f1_score'] = f1_score(y, y_pred,
                                                  # pos_label=path_rule['predict_class'],
                                                  average=self.metric_averaging, zero_division=0)
-                ret_rules['{}_{}'.format(leaf_idx, cls)] = path_rule
+                ret_rules['{}_{}'.format(path_rule['leaf_index'], cls)] = path_rule
 
         # return {leaf_idx+cls: {accuracy: , recall: ,...}}
         # e.g. {6_1: {accuracy: ..., recall: ...,}, 7_1: {...}, ...}
@@ -1265,6 +1308,7 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
             list of dicts
         """
         rule_list = []
+        seen_rule_list = []
 
         condition_list = []
         print_dicts = []
@@ -1282,9 +1326,12 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
                 #     continue  # skip non_max case
 
                 # pattern
-                rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
-                rule_list.append(rule_txt)
-                rule_idx = len(rule_list) - 1
+                rule_txt = ('{} IF '.format(node_rule['predict_class']) +
+                            ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys]))
+
+                if rule_txt not in rule_list:
+                    rule_list.append(rule_txt)
+                rule_idx = rule_list.index(rule_txt)
 
                 # items
                 _list_conditions = []
@@ -1303,24 +1350,27 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
                     print('support: {}'.format(node_rule['frequency']))
                     print('=' * 30 + '\n')
 
-                # print_dicts.append(prn)
-                rule = Rule(idx=rule_idx,
-                            rule_str=rule_txt,
-                            conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
-                                       for (_, itm_idx_k) in _list_conditions],
-                            support=int(round(node_rule['frequency_am'] * 100)),
-                            size=len(_list_conditions),
-                            accuracy=int(round(node_rule['accuracy'] * 100)),
-                            error_rate=int(round(node_rule['error_rate'] * 100)),
-                            precision=int(round(node_rule['precision'] * 100)),
-                            recall=int(round(node_rule['recall'] * 100)),
-                            f1_score=int(round(node_rule['f1_score'] * 100)),
-                            predict_class=node_rule['predict_class'])
-                rl_obj_list.append(rule)
+                if rule_txt in seen_rule_list:
+                    rule = rl_obj_list[rule_list.index(rule_txt)]
+                else:
+                    rule = Rule(idx=rule_idx,
+                                rule_str=rule_txt,
+                                conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
+                                           for (_, itm_idx_k) in _list_conditions],
+                                support=int(round(node_rule['frequency_am'] * 100)),
+                                size=len(_list_conditions),
+                                accuracy=int(round(node_rule['accuracy'] * 100)),
+                                error_rate=int(round(node_rule['error_rate'] * 100)),
+                                precision=int(round(node_rule['precision'] * 100)),
+                                recall=int(round(node_rule['recall'] * 100)),
+                                f1_score=int(round(node_rule['f1_score'] * 100)),
+                                predict_class=node_rule['predict_class'])
+                    rl_obj_list.append(rule)
+                    seen_rule_list.append(rule_txt)
 
                 # create new dict
                 prn = {
-                    'rule_idx': rule_idx,
+                    'rule_idx': rule.idx,
                     'rule': rule,
                     'conditions': [x for x in _list_conditions],
                     'support': node_rule['frequency_am'],
