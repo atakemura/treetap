@@ -166,7 +166,7 @@ def run_one_round(dataset_name, encoding,
     print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
                                                                         round(ext_end - start)))
 
-    exp_dir = './tmp/iclp2021/experiments_lgb_dom_maxacc'
+    exp_dir = './tmp/test'
 
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
@@ -369,12 +369,12 @@ if __name__ == '__main__':
 
     if debug_mode:
         data = ['autism', 'breast',
-                'cars',
-                'credit_australia',
-                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
-                'credit_taiwan',
+                #'cars',
+                #'credit_australia',
+                #'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
+                #'credit_taiwan',
                 # 'eeg',
-                'census',
+                #'census',
                 # 'kdd99',
                 # 'airline'
                 # 'synthetic_1'
