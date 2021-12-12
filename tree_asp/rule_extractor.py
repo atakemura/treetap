@@ -335,17 +335,15 @@ class RFRuleExtractor:
         self.non_rule_keys = ['class', 'condition_length', 'error_rate',
                               'precision', 'recall', 'f1_score',
                               'frequency', 'frequency_am', 'predict_class', 'value',
-                              'is_tree_max', 'accuracy']
+                              'is_tree_max', 'accuracy', 'leaf_index']
         self.asp_fact_str = None
         self.fitted_ = False
         self.rules_ = None
         self.conditions_ = None
         self.metric_averaging = None
 
-    def fit(self, X, y, model=None, feature_names=None, **params):
+    def fit(self, X, y, model, feature_names=None, **params):
         # validate the input model
-        if model is None:
-            raise ValueError('model parameter is required.')
         if not isinstance(model, RandomForestClassifier):
             raise ValueError('only RandomForestClassifier is supported at the moment.')
         check_is_fitted(model, 'estimators_')
@@ -480,6 +478,7 @@ class RFRuleExtractor:
                     class_name = np.argmax(value)
                 rule_dict['class'] = class_name  # most frequent class is the prediction
                 rule_dict['value'] = np.sum(value)  # number of supporting examples
+                rule_dict['leaf_index'] = node  # TODO: this may be a mistake if RF has internal node index based on _tree
         return rule_dict
 
     def export_text_rule_rf(self, tree_rules: dict, X, y):
@@ -514,19 +513,33 @@ class RFRuleExtractor:
                 # reduce boolean mask
                 mask_res = reduce(and_, _tmp_dfs)
                 # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-                # path_rule['predict_class'] = y[mask_res].mode()[0]
+                ## path_rule['predict_class'] = y[mask_res].mode()[0]
+                # path_rule['predict_class'] = 1
+                # y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
+                # path_rule['condition_length'] = len(_tmp_dfs)
+                # path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
+                # path_rule['frequency'] = len(y[mask_res])  # coverage
+                # path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
+                # path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
+                # path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+                #                                          average=self.metric_averaging)
+                # path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+                #                                    average=self.metric_averaging)
+                # path_rule['f1_score'] = f1_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+                #                                  average=self.metric_averaging)
                 path_rule['predict_class'] = 1
-                y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
+                y_pred = np.zeros(y.shape)
+                y_pred[mask_res] = path_rule['predict_class']
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
                 path_rule['frequency'] = len(y[mask_res])  # coverage
-                path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
-                path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
-                path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+                path_rule['error_rate'] = 1 - accuracy_score(y, y_pred)
+                path_rule['accuracy'] = accuracy_score(y, y_pred)
+                path_rule['precision'] = precision_score(y, y_pred, pos_label=path_rule['predict_class'],
                                                          average=self.metric_averaging)
-                path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+                path_rule['recall'] = recall_score(y, y_pred, pos_label=path_rule['predict_class'],
                                                    average=self.metric_averaging)
-                path_rule['f1_score'] = f1_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
+                path_rule['f1_score'] = f1_score(y, y_pred, pos_label=path_rule['predict_class'],
                                                  average=self.metric_averaging)
         return rules
 
@@ -632,6 +645,249 @@ class RFRuleExtractor:
             prn.append('f1_score({},{}).'.format(ptn_idx, int(round(rule_dict['f1_score'] * 100))))
             prn.append('error_rate({},{}).'.format(ptn_idx, int(round(rule_dict['error_rate'] * 100))))
             prn.append('predict_class({},{}).'.format(ptn_idx, rule_dict['predict_class']))
+            print_lines.append(' '.join(prn))
+        return_str = '\n'.join(print_lines)
+        return return_str
+
+
+class RFLocalRuleExtractor(RFRuleExtractor):
+    def __init__(self, verbose=False):
+        super().__init__(verbose)
+
+    def fit(self, X, y, model, feature_names=None, **params):
+        # validate the input model
+        if not isinstance(model, RandomForestClassifier):
+            raise ValueError('only RandomForestClassifier is supported at the moment.')
+        check_is_fitted(model, 'estimators_')
+
+        num_classes = y.nunique()
+        self.metric_averaging = 'micro' if num_classes > 2 else 'binary'
+
+        # extract rules for all trees
+        rules = {}
+        for t_idx, tree in enumerate(model.estimators_):
+            try:
+                _, rules[t_idx] = self.export_text_rule_tree(tree, X, feature_names)
+            except OnlyLeafFoundException:
+                print('skipping leaf only tree')
+                continue
+        rules = self.export_text_rule_rf(rules, X, y)
+
+        # simple rule merging
+        self.asp_dict_from_rules(rules)
+
+        # printable strings
+        # print_str = self.asp_str_from
+        self.fitted_ = True
+
+        return self
+
+    def transform(self, X, y=None, model=None, **params):
+        leaf_indices = model.apply(X)
+        cls = (model.predict(X) > 0.5).astype(int)
+        rule_indices = np.zeros_like(leaf_indices) - 1
+        rule_tree_indices = list()
+        candidate_ssp_rules = list()
+
+        for s_idx, sample_leaf_idx in enumerate(leaf_indices):
+            rule_tree_dict = defaultdict(list)
+            rule_dict_list = list()
+            _c = cls[s_idx]
+            for t_idx, leaf in enumerate(sample_leaf_idx):
+                if leaf == 0:  # ignore leaf only tree because it has no splits
+                    continue
+                key = '{}_{}_{}'.format(t_idx, leaf, _c)
+                rule = self.all_path_rule.get(key)
+                if rule is None:
+                    assert False, 'No path for such key: {}'.format(key)
+                rule_indices[s_idx, sample_leaf_idx] = rule['rule'].idx
+                rule_tree_dict[rule['rule'].idx].append(t_idx)
+                if rule not in rule_dict_list:
+                    rule_dict_list.append(rule)
+            if len(rule_tree_dict) < 1:
+                assert False, 'Empty rule list is not allowed'
+            rule_tree_indices.append(dict(rule_tree_dict))
+            candidate_ssp_rules.append(self.asp_str_from_dicts(rule_dict_list))
+
+        return candidate_ssp_rules
+
+    def export_text_rule_rf(self, tree_rules: dict, X, y, classes=None):
+        if classes is None:
+            classes = [0, 1]
+
+        # {tree_idx: {leaf_idx: {cond_1: , cond_2:, ...}}, ...}
+        ret_rules = dict()
+        cond_cache = dict()
+        rules = tree_rules
+
+        for t_idx, t_rules in rules.items():
+            for cls in classes:
+                for path_rule in t_rules.values():
+                    _tmp_dfs = []
+                    for rule_key in path_rule.keys():
+                        # skip non-conditions
+                        if rule_key in self.non_rule_keys:
+                            continue
+                        # collect conditions and boolean mask
+                        else:
+                            if rule_key in cond_cache:
+                                _tmp_mask = cond_cache[rule_key]
+                            elif LT_PATTERN in rule_key:
+                                _rule_field, _rule_threshold = rule_key.rsplit(LT_PATTERN, 1)
+                                _tmp_mask = getattr(X[_rule_field], 'lt')(float(_rule_threshold))
+                            elif LE_PATTERN in rule_key:
+                                _rule_field, _rule_threshold = rule_key.rsplit(LE_PATTERN, 1)
+                                _tmp_mask = getattr(X[_rule_field], 'le')(float(_rule_threshold))
+                            elif GT_PATTERN in rule_key:
+                                _rule_field, _rule_threshold = rule_key.rsplit(GT_PATTERN, 1)
+                                _tmp_mask = getattr(X[_rule_field], 'gt')(float(_rule_threshold))
+                            elif GE_PATTERN in rule_key:
+                                _rule_field, _rule_threshold = rule_key.rsplit(GE_PATTERN, 1)
+                                _tmp_mask = getattr(X[_rule_field], 'ge')(float(_rule_threshold))
+                            else:
+                                raise ValueError('No key found')
+                            _tmp_dfs.append(_tmp_mask)
+                    # for a path that has length = 1 (straight to leaf)
+                    if len(_tmp_dfs) == 0:
+                        continue
+                    # reduce boolean mask
+                    mask_res = reduce(and_, _tmp_dfs)
+
+                    path_rule['predict_class'] = cls
+                    if cls == 1:
+                        y_pred = np.zeros(y.shape)
+                    else:
+                        y_pred = np.ones(y.shape)
+                    y_pred[mask_res] = cls
+                    path_rule['condition_length'] = len(_tmp_dfs)
+                    path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
+                    path_rule['frequency'] = len(y[mask_res])  # coverage
+                    path_rule['error_rate'] = 1 - accuracy_score(y, y_pred)
+                    path_rule['accuracy'] = accuracy_score(y, y_pred)
+                    path_rule['precision'] = precision_score(y, y_pred, pos_label=path_rule['predict_class'],
+                                                             average=self.metric_averaging)
+                    path_rule['recall'] = recall_score(y, y_pred, pos_label=path_rule['predict_class'],
+                                                       average=self.metric_averaging)
+                    path_rule['f1_score'] = f1_score(y, y_pred, pos_label=path_rule['predict_class'],
+                                                     average=self.metric_averaging)
+                    leaf_cls_key = '{}_{}'.format(path_rule['leaf_index'], cls)
+                    if t_idx not in ret_rules.keys():
+                        ret_rules[t_idx] = {leaf_cls_key: path_rule}
+                    else:
+                        ret_rules[t_idx][leaf_cls_key] = path_rule
+        return ret_rules
+
+    def asp_dict_from_rules(self, rules: dict):
+        """
+        Construct intermediate list of dicts that can be processed into ASP strings.
+        In this implementation, duplicate patterns are merged by aggregating the support (frequency).
+
+        Args:
+            rules: dict of dicts containing rules
+
+        Returns:
+            list of dicts
+        """
+        rule_list = []
+        seen_rule_list = []
+
+        condition_list = []
+        print_dicts = []
+
+        # pattern and item instances
+        rl_obj_list = []
+        lit_obj_list = []
+
+        path_rules = {}
+
+        # {tree_idx: {leaf_idx_class: {}, leaf_idx_class: {}}, tree_idx: {}, ...}
+        for t_idx, t in rules.items():
+            for node_idx, node_rule in t.items():
+                # if not node_rule['is_tree_max']:
+                #     continue  # skip non_max case
+
+                # pattern
+                rule_txt = ('{} IF '.format(node_rule['predict_class']) +
+                            ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys]))
+
+                if rule_txt not in rule_list:
+                    rule_list.append(rule_txt)
+                rule_idx = rule_list.index(rule_txt)
+
+                # items
+                _list_conditions = []
+                for k in node_rule.keys():
+                    if k not in self.non_rule_keys:
+                        if k in condition_list:
+                            lit_idx = condition_list.index(k)
+                        else:
+                            condition_list.append(k)
+                            lit_idx = len(condition_list) - 1
+                            lit_obj_list.append(Condition(lit_idx, k))
+                        _list_conditions.append((rule_idx, lit_idx))
+                if self.verbose:
+                    print('rule_id {} class={}: {}'.format(rule_idx, node_rule['predict_class'], rule_txt))
+                    print('conditions: {}'.format(['condition{}'.format(x) for x in _list_conditions]))
+                    print('support: {}'.format(node_rule['frequency']))
+                    print('=' * 30 + '\n')
+
+                if rule_txt in seen_rule_list:
+                    rule = rl_obj_list[rule_list.index(rule_txt)]
+                else:
+                    rule = Rule(idx=rule_idx,
+                                rule_str=rule_txt,
+                                conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
+                                           for (_, itm_idx_k) in _list_conditions],
+                                support=int(round(node_rule['frequency_am'] * 100)),
+                                size=len(_list_conditions),
+                                accuracy=int(round(node_rule['accuracy'] * 100)),
+                                error_rate=int(round(node_rule['error_rate'] * 100)),
+                                precision=int(round(node_rule['precision'] * 100)),
+                                recall=int(round(node_rule['recall'] * 100)),
+                                f1_score=int(round(node_rule['f1_score'] * 100)),
+                                predict_class=node_rule['predict_class'])
+                    rl_obj_list.append(rule)
+                    seen_rule_list.append(rule_txt)
+
+                # create new dict
+                prn = {
+                    'rule_idx': rule.idx,
+                    'rule': rule,
+                    'conditions': [x for x in _list_conditions],
+                    'support': node_rule['frequency_am'],
+                    'size': len(_list_conditions),
+                    'error_rate': node_rule['error_rate'],
+                    'accuracy': node_rule['accuracy'],
+                    'precision': node_rule['precision'],
+                    'recall': node_rule['recall'],
+                    'f1_score': node_rule['f1_score'],
+                    'predict_class': node_rule['predict_class']
+                }
+
+                # node_idx already contains leaf_idx and class
+                tree_rule_idx = '{}_{}'.format(t_idx, node_idx)
+                path_rules[tree_rule_idx] = prn
+        self.all_path_rule = path_rules
+        self.rules_ = rl_obj_list
+        self.conditions_ = lit_obj_list
+        return None
+
+    def asp_str_from_dicts(self, list_dicts: list):
+        print_lines = []
+        for rule_dict in list_dicts:
+            prn = []
+            rule_idx = rule_dict['rule_idx']
+            prn.append('rule({}).'.format(rule_idx))
+            for x in rule_dict['conditions']:
+                prn.append('condition({},{}).'.format(x[0], x[1]))
+            prn.append('support({},{}).'.format(rule_idx, int(round(rule_dict['support'] * 100))))
+            prn.append('size({},{}).'.format(rule_idx, rule_dict['size']))
+            prn.append('accuracy({},{}).'.format(rule_idx, int(round(rule_dict['accuracy'] * 100))))
+            prn.append('error_rate({},{}).'.format(rule_idx, int(round(rule_dict['error_rate'] * 100))))
+            prn.append('precision({},{}).'.format(rule_idx, int(round(rule_dict['precision'] * 100))))
+            prn.append('recall({},{}).'.format(rule_idx, int(round(rule_dict['recall'] * 100))))
+            prn.append('f1_score({},{}).'.format(rule_idx, int(round(rule_dict['f1_score'] * 100))))
+            prn.append('predict_class({},{}).'.format(rule_idx, rule_dict['predict_class']))
             print_lines.append(' '.join(prn))
         return_str = '\n'.join(print_lines)
         return return_str
