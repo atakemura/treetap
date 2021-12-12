@@ -13,7 +13,7 @@ from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
 
-from rule_extractor import LGBMRuleExtractor
+from rule_extractor import LGBMGlobalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
@@ -159,7 +159,7 @@ def run_one_round(dataset_name, encoding,
 
     ext_start = timer()
     print('rule extraction start')
-    lgb_extractor = LGBMRuleExtractor()
+    lgb_extractor = LGBMGlobalRuleExtractor()
     lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
     res_str = lgb_extractor.transform(x_train, y_train)
     ext_end = timer()

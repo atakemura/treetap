@@ -15,7 +15,7 @@ from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
 
-from rule_extractor import RFRuleExtractor
+from rule_extractor import RFGlobalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
@@ -122,7 +122,7 @@ def run_one_round(dataset_name, encoding,
                        'f1':        f1_score(y_valid, rf_vanilla_pred, average=metric_averaging)}
 
     ext_start = timer()
-    rf_extractor = RFRuleExtractor()
+    rf_extractor = RFGlobalRuleExtractor()
     rf_extractor.fit(x_train, y_train, model=rf, feature_names=feature_names)
     res_str = rf_extractor.transform(x_train, y_train)
     ext_end = timer()

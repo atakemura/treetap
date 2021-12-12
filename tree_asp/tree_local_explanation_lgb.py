@@ -1,7 +1,6 @@
 import json
 import lightgbm as lgb
 import os
-import pandas as pd
 import numpy as np
 import subprocess
 import pickle
@@ -13,7 +12,7 @@ from timeit import default_timer as timer
 from copy import deepcopy
 
 from hyperparameter import optuna_lgb
-from rule_extractor import LGBMRuleExtractor, LGBMLocalRuleExtractor
+from rule_extractor import LGBMGlobalRuleExtractor, LGBMLocalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
@@ -106,7 +105,7 @@ def run_one_round(dataset_name,
             lgb_extractor = pickle.load(ext_pkl)
         res_str = lgb_extractor.transform(x_train, y_train)
     else:
-        lgb_extractor = LGBMRuleExtractor()
+        lgb_extractor = LGBMGlobalRuleExtractor()
         lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
         res_str = lgb_extractor.transform(x_train, y_train)
 

@@ -10,7 +10,6 @@ from sklearn.utils.validation import check_is_fitted
 
 from copy import deepcopy
 from collections import defaultdict
-from pprint import pprint
 from functools import reduce
 from multiprocessing import Pool
 from psutil import cpu_count
@@ -292,17 +291,17 @@ class DTRuleExtractor:
                 }
                 print_dicts.append(prn)
                 rl_obj_list.append(Rule(idx=rule_idx,
-                                         rule_str=rule_txt,
-                                         conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
-                                                   for (_, itm_idx_k) in _list_conditions],
-                                         support=int(round(node_rule['frequency'] * 100)),
-                                         size=len(_list_conditions),
-                                         error_rate=int(round(node_rule['error_rate']*100)),
-                                         accuracy=int(round(node_rule['accuracy'] * 100)),
-                                         precision=int(round(node_rule['precision'] * 100)),
-                                         recall=int(round(node_rule['recall'] * 100)),
-                                         f1_score=int(round(node_rule['f1_score'] * 100)),
-                                         predict_class=node_rule['predict_class']))
+                                        rule_str=rule_txt,
+                                        conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
+                                                    for (_, itm_idx_k) in _list_conditions],
+                                        support=int(round(node_rule['frequency'] * 100)),
+                                        size=len(_list_conditions),
+                                        error_rate=int(round(node_rule['error_rate']*100)),
+                                        accuracy=int(round(node_rule['accuracy'] * 100)),
+                                        precision=int(round(node_rule['precision'] * 100)),
+                                        recall=int(round(node_rule['recall'] * 100)),
+                                        f1_score=int(round(node_rule['f1_score'] * 100)),
+                                        predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
         return print_dicts
@@ -328,7 +327,7 @@ class DTRuleExtractor:
         return return_str
 
 
-class RFRuleExtractor:
+class RFGlobalRuleExtractor:
     def __init__(self, verbose=False):
         self.feature_names = None
         self.verbose = verbose
@@ -478,7 +477,7 @@ class RFRuleExtractor:
                     class_name = np.argmax(value)
                 rule_dict['class'] = class_name  # most frequent class is the prediction
                 rule_dict['value'] = np.sum(value)  # number of supporting examples
-                rule_dict['leaf_index'] = node  # TODO: this may be a mistake if RF has internal node index based on _tree
+                rule_dict['leaf_index'] = node
         return rule_dict
 
     def export_text_rule_rf(self, tree_rules: dict, X, y):
@@ -512,21 +511,7 @@ class RFRuleExtractor:
                     continue
                 # reduce boolean mask
                 mask_res = reduce(and_, _tmp_dfs)
-                # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-                ## path_rule['predict_class'] = y[mask_res].mode()[0]
-                # path_rule['predict_class'] = 1
-                # y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
-                # path_rule['condition_length'] = len(_tmp_dfs)
-                # path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
-                # path_rule['frequency'] = len(y[mask_res])  # coverage
-                # path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
-                # path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
-                # path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
-                #                                          average=self.metric_averaging)
-                # path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
-                #                                    average=self.metric_averaging)
-                # path_rule['f1_score'] = f1_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
-                #                                  average=self.metric_averaging)
+
                 path_rule['predict_class'] = 1
                 y_pred = np.zeros(y.shape)
                 y_pred[mask_res] = path_rule['predict_class']
@@ -614,17 +599,17 @@ class RFRuleExtractor:
                 }
                 print_dicts.append(prn)
                 rl_obj_list.append(Rule(idx=rule_idx,
-                                         rule_str=rule_txt,
-                                         conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
-                                                   for (_, itm_idx_k) in _list_conditions],
-                                         support=int(round(node_rule['frequency_am']*100)),
-                                         size=len(_list_conditions),
-                                         error_rate=int(round(node_rule['error_rate']*100)),
-                                         accuracy=int(round(node_rule['accuracy'] * 100)),
-                                         precision=int(round(node_rule['precision'] * 100)),
-                                         recall=int(round(node_rule['recall'] * 100)),
-                                         f1_score=int(round(node_rule['f1_score'] * 100)),
-                                         predict_class=node_rule['predict_class']))
+                                        rule_str=rule_txt,
+                                        conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
+                                                    for (_, itm_idx_k) in _list_conditions],
+                                        support=int(round(node_rule['frequency_am']*100)),
+                                        size=len(_list_conditions),
+                                        error_rate=int(round(node_rule['error_rate']*100)),
+                                        accuracy=int(round(node_rule['accuracy'] * 100)),
+                                        precision=int(round(node_rule['precision'] * 100)),
+                                        recall=int(round(node_rule['recall'] * 100)),
+                                        f1_score=int(round(node_rule['f1_score'] * 100)),
+                                        predict_class=node_rule['predict_class']))
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
         return print_dicts
@@ -650,7 +635,7 @@ class RFRuleExtractor:
         return return_str
 
 
-class RFLocalRuleExtractor(RFRuleExtractor):
+class RFLocalRuleExtractor(RFGlobalRuleExtractor):
     def __init__(self, verbose=False):
         super().__init__(verbose)
 
@@ -837,7 +822,7 @@ class RFLocalRuleExtractor(RFRuleExtractor):
                     rule = Rule(idx=rule_idx,
                                 rule_str=rule_txt,
                                 conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
-                                           for (_, itm_idx_k) in _list_conditions],
+                                            for (_, itm_idx_k) in _list_conditions],
                                 support=int(round(node_rule['frequency_am'] * 100)),
                                 size=len(_list_conditions),
                                 accuracy=int(round(node_rule['accuracy'] * 100)),
@@ -968,7 +953,7 @@ class LGBMTree:
         # self.values = np.multiply(self.values, scaling)  # scaling is not supported
 
 
-class LGBMRuleExtractor:
+class LGBMGlobalRuleExtractor:
     def __init__(self, verbose=False):
         self.feature_names = None
         self.verbose = verbose
@@ -1160,28 +1145,13 @@ class LGBMRuleExtractor:
                         raise ValueError('No key found')
             # reduce boolean mask
             mask_res = reduce(and_, _tmp_dfs)
-            # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-            # path_rule['predict_class'] = y[mask_res].mode()[0]
-            # y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
-            # path_rule['condition_length'] = len(_tmp_dfs)
-            # path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
-            # path_rule['frequency'] = len(y[mask_res])
-            # path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
-            # path_rule['precision'] = precision_score(y[mask_res], y_pred,
-            #                                         #  pos_label=path_rule['predict_class'],
-            #                                          average=self.metric_averaging,
-            #                                          zero_division=0)
-            # path_rule['recall'] = recall_score(y[mask_res], y_pred,
-            #                                 #    pos_label=path_rule['predict_class'],
-            #                                    average=self.metric_averaging,
-            #                                    zero_division=0)
+
             # do not subset by mask, use whole dataset
             if y.nunique() != 2:
                 raise RuntimeError('only binary classification is supported at this moment')
             path_rule['predict_class'] = 1
             y_pred = np.zeros(y.shape)
             y_pred[mask_res] = 1
-            # y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
             path_rule['condition_length'] = len(_tmp_dfs)
             path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
             path_rule['frequency'] = len(y[mask_res])
@@ -1200,65 +1170,6 @@ class LGBMRuleExtractor:
                                              average=self.metric_averaging, zero_division=0)
 
         return rules
-
-    # def export_text_rule_lgb(self, tree_rules, X, y):
-    #     rules = tree_rules
-    #     # adding rule statistics
-    #     for t_idx, t_rules in rules.items():
-    #         for path_rule in t_rules.values():
-    #             _tmp_dfs = []
-    #             for rule_key in path_rule.keys():
-    #                 # skip non-conditions
-    #                 if rule_key in self.non_rule_keys:
-    #                     continue
-    #                 # collect conditions and boolean mask
-    #                 else:
-    #                     if LT_PATTERN in rule_key:
-    #                         _rule_field, _rule_threshold = rule_key.rsplit(LT_PATTERN, 1)
-    #                         _tmp_dfs.append(getattr(X[_rule_field], 'lt')(float(_rule_threshold)))
-    #                     elif LE_PATTERN in rule_key:
-    #                         _rule_field, _rule_threshold = rule_key.rsplit(LE_PATTERN, 1)
-    #                         _tmp_dfs.append(getattr(X[_rule_field], 'le')(float(_rule_threshold)))
-    #                     elif GT_PATTERN in rule_key:
-    #                         _rule_field, _rule_threshold = rule_key.rsplit(GT_PATTERN, 1)
-    #                         _tmp_dfs.append(getattr(X[_rule_field], 'gt')(float(_rule_threshold)))
-    #                     elif GE_PATTERN in rule_key:
-    #                         _rule_field, _rule_threshold = rule_key.rsplit(GE_PATTERN, 1)
-    #                         _tmp_dfs.append(getattr(X[_rule_field], 'ge')(float(_rule_threshold)))
-    #                     elif EQ_PATTERN in rule_key:
-    #                         _rule_field, _rule_threshold = rule_key.rsplit(EQ_PATTERN, 1)
-    #                         inverse_map = dict(enumerate(X[_rule_field].cat.categories))
-    #                         # rule threshold in this case can be like '0||1||2'
-    #                         _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
-    #                         _tmp_dfs.append(getattr(X[_rule_field], 'isin')(_cat_th))
-    #                     elif NEQ_PATTERN in rule_key:
-    #                         _rule_field, _rule_threshold = rule_key.rsplit(NEQ_PATTERN, 1)
-    #                         inverse_map = dict(enumerate(X[_rule_field].cat.categories))
-    #                         # rule threshold in this case can be like '0||1||2'
-    #                         _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
-    #                         # note the bitwise complement ~
-    #                         _tmp_dfs.append(~ getattr(X[_rule_field], 'isin')(_cat_th))
-    #                     else:
-    #                         raise ValueError('No key found')
-    #             # reduce boolean mask
-    #             mask_res = reduce(and_, _tmp_dfs)
-    #             # these depend on the entire training data, not on the bootstrapped data that the original rf uses
-    #             # path_rule['predict_class'] = y[mask_res].mode()[0]
-    #             path_rule['predict_class'] = 1
-    #             y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
-    #             path_rule['condition_length'] = len(_tmp_dfs)
-    #             path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
-    #             path_rule['frequency'] = len(y[mask_res])  # coverage
-    #             path_rule['error_rate'] = 1 - accuracy_score(y[mask_res], y_pred)
-    #             path_rule['accuracy'] = accuracy_score(y[mask_res], y_pred)
-    #             path_rule['precision'] = precision_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
-    #                                                      average=self.metric_averaging)
-    #             path_rule['recall'] = recall_score(y[mask_res], y_pred, pos_label=path_rule['predict_class'],
-    #                                                average=self.metric_averaging)
-    #             if y.nunique() != 2:
-    #                 raise RuntimeError('only binary classification is supported at this moment')
-    #
-    #     return rules
 
     def asp_dict_from_rules(self, rules: dict):
         """
@@ -1333,7 +1244,7 @@ class LGBMRuleExtractor:
                 rl_obj_list.append(Rule(idx=rule_idx,
                                         rule_str=rule_txt,
                                         conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
-                                                   for (_, itm_idx_k) in _list_conditions],
+                                                    for (_, itm_idx_k) in _list_conditions],
                                         support=int(round(node_rule['frequency_am'] * 100)),
                                         size=len(_list_conditions),
                                         accuracy=int(round(node_rule['accuracy'] * 100)),
@@ -1367,7 +1278,7 @@ class LGBMRuleExtractor:
         return return_str
 
 
-class LGBMLocalRuleExtractor(LGBMRuleExtractor):
+class LGBMLocalRuleExtractor(LGBMGlobalRuleExtractor):
     def __init__(self, verbose=False):
         super().__init__(verbose)
         # self.non_rule_keys.append('leaf_idx')
@@ -1612,7 +1523,7 @@ class LGBMLocalRuleExtractor(LGBMRuleExtractor):
                     rule = Rule(idx=rule_idx,
                                 rule_str=rule_txt,
                                 conditions=[Condition(itm_idx_k, condition_list[itm_idx_k])
-                                           for (_, itm_idx_k) in _list_conditions],
+                                            for (_, itm_idx_k) in _list_conditions],
                                 support=int(round(node_rule['frequency_am'] * 100)),
                                 size=len(_list_conditions),
                                 accuracy=int(round(node_rule['accuracy'] * 100)),

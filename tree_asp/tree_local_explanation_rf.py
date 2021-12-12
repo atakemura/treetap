@@ -15,7 +15,7 @@ from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
 
-from rule_extractor import RFRuleExtractor, RFLocalRuleExtractor
+from rule_extractor import RFGlobalRuleExtractor, RFLocalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from hyperparameter import optuna_random_forest
@@ -90,7 +90,7 @@ def run_one_round(dataset_name,
             rf_extractor = pickle.load(ext_pkl)
         res_str = rf_extractor.transform(x_train, y_train)
     else:
-        rf_extractor = RFRuleExtractor()
+        rf_extractor = RFGlobalRuleExtractor()
         rf_extractor.fit(x_train, y_train, model=rf, feature_names=feature_names)
         res_str = rf_extractor.transform(x_train, y_train)
         with open(extractor_path, 'wb') as ext_out:

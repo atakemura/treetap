@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_iris, load_breast_cancer, load_wine
 
-from tree_asp.rule_extractor import RFRuleExtractor
+from tree_asp.rule_extractor import RFGlobalRuleExtractor
 from tree_asp.asp_encoding import SkylineSolver, MaximalSolver, ClosedSolver
 
 import subprocess
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     # rf = RandomForestClassifier(n_estimators=10, max_depth=6, random_state=4)
     # rf.fit(X, y)
     #
-    # a = RFRuleExtractor()
+    # a = RFGlobalRuleExtractor()
     # a.fit(X, y, model=rf, feature_names=iris_feat)
     #
     # ret_str = a.transform(X, y)
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     rf = RandomForestClassifier(n_estimators=10, max_depth=6, random_state=4)
     rf.fit(X, y)
 
-    rf_extractor = RFRuleExtractor()
+    rf_extractor = RFGlobalRuleExtractor()
     rf_extractor.fit(X, y, model=rf, feature_names=wine_feat)
 
     ret_str = rf_extractor.transform(X, y)
