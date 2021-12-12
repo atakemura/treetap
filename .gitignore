@@ -124,10 +124,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Dataset directory
-/datasets/datasets/
-/datasets/ingestion/
-
 # Other people's files including binary
 /contrib
 
