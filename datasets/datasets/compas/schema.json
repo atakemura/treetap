@@ -1,0 +1,19 @@
+{
+    "id_col": "",
+    "categorical_columns": [
+        "age_cat",
+        "sex",
+        "race",
+        "c_charge_degree",
+        "is_recid",
+        "is_violent_recid",
+        "two_year_recid"
+    ],
+    "numerical_columns": [
+        "age",
+        "priors_count",
+        "days_b_screening_arrest",
+        "length_of_stay"
+    ],
+    "label_column": "label"
+}

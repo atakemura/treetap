@@ -25,6 +25,9 @@ def ingest_data():
         'kdd99':            kdd99_parser,
         'eeg':              eeg_parser,
         'credit_taiwan':    credit_taiwan_parser,
+        'credit_german':    credit_german_parser,
+        'compas':           compas_parser,
+        'adult':            adult_parser,
     }
     base = Path(__file__).parent / 'ingestion'
     for k, v in dataset_parser.items():
@@ -522,6 +525,136 @@ def credit_taiwan_parser():
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
     print('dataset: credit_taiwan written to {}'.format(out_dir / 'credit_taiwan.csv'))
+
+
+def adult_parser():
+    df = pd.read_csv(Path(__file__).parent / 'ingestion' / 'adult' / 'adult.csv',
+                     names=['age', 'workclass', 'fnlwgt', 'education', 'education-num',
+                            'marital-status', 'occupation', 'relationship', 'race', 'sex',
+                            'capital-gain', 'capital-loss', 'hours-per-week',
+                            'native-country', 'class'], header=0)
+    # delete useless columns
+    del df['fnlwgt']
+    del df['education-num']
+    # impute missing values
+    for c in df.columns:
+        if '?' in list(df[c].unique()):
+            df[c].replace({'?': df[c].mode()}, inplace=True)
+
+    # label normalization
+    df.rename({'class': 'label'}, axis=1, inplace=True)
+    df['label'].replace({'<=50K': 0, '>50K': 1}, inplace=True)
+    # schema
+    schema = {
+        'id_col': '',
+        'categorical_columns': ['workclass', 'education',
+                                'marital-status', 'occupation', 'relationship', 'race', 'sex',
+                                #'capital-gain', 'capital-loss', 'hours-per-week',
+                                'native-country',],
+        'numerical_columns': ['age', #'fnlwgt', 'education-num',
+                              #'marital-status', 'occupation', 'relationship', 'race', 'sex',
+                              'capital-gain', 'capital-loss', 'hours-per-week',
+                              ],
+        'label_column': 'label'
+    }
+    check_dtypes(schema, df)
+    out_dir = Path(Path(__file__).parent / 'datasets' / 'adult')
+    out_dir.mkdir(exist_ok=True)
+    df.to_csv(out_dir / 'adult.csv', header=True, index=False)
+    with open(out_dir / 'schema.json', 'w') as out_file:
+        json.dump(schema, out_file, indent=4)
+    print('dataset: adult written to {}'.format(out_dir / 'adult.csv'))
+
+
+def compas_parser():
+    df = pd.read_csv(Path(__file__).parent / 'ingestion' / 'compas' / 'compas-scores-two-years.csv')
+
+    columns = ['age', 'age_cat', 'sex', 'race',  'priors_count', 'days_b_screening_arrest', 'c_jail_in', 'c_jail_out',
+               'c_charge_degree', 'is_recid', 'is_violent_recid', 'two_year_recid', 'decile_score', 'score_text']
+    df = df[columns]
+
+    df['c_jail_out'] = pd.to_datetime(df['c_jail_out'])
+    df['c_jail_in'] = pd.to_datetime(df['c_jail_in'])
+
+    df['length_of_stay'] = (df['c_jail_out'] - df['c_jail_in']).dt.days
+    df['length_of_stay'] = np.abs(df['length_of_stay'])
+    df['length_of_stay'].fillna(df['length_of_stay'].value_counts().index[0], inplace=True)
+    df['length_of_stay'] = df['length_of_stay'].astype(int)
+
+    df['days_b_screening_arrest'] = np.abs(df['days_b_screening_arrest'])
+    df['days_b_screening_arrest'].fillna(df['days_b_screening_arrest'].value_counts().index[0], inplace=True)
+    df['days_b_screening_arrest'] = df['days_b_screening_arrest'].astype(int)
+
+    def get_class(x):
+        if x < 7:
+            return 'Medium-Low'
+        else:
+            return 'High'
+    df['class'] = df['decile_score'].apply(get_class)
+
+    del df['c_jail_in']
+    del df['c_jail_out']
+    del df['decile_score']
+    del df['score_text']
+
+    # label normalization
+    df.rename({'class': 'label'}, axis=1, inplace=True)
+    df['label'].replace({'Medium-Low': 0, 'High': 1}, inplace=True)
+
+    # schema
+    schema = {
+        'id_col': '',
+        'categorical_columns': ['age_cat', 'sex', 'race',
+                                'c_charge_degree', 'is_recid', 'is_violent_recid',
+                                'two_year_recid',],
+        'numerical_columns': ['age',
+                              'priors_count', 'days_b_screening_arrest',
+                              'length_of_stay'],
+        'label_column': 'label'
+    }
+    check_dtypes(schema, df)
+    out_dir = Path(Path(__file__).parent / 'datasets' / 'compas')
+    out_dir.mkdir(exist_ok=True)
+    df.to_csv(out_dir / 'compas.csv', header=True, index=False)
+    with open(out_dir / 'schema.json', 'w') as out_file:
+        json.dump(schema, out_file, indent=4)
+    print('dataset: compas written to {}'.format(out_dir / 'compas.csv'))
+
+
+def credit_german_parser():
+    df = pd.read_csv(Path(__file__).parent / 'ingestion' / 'credit_german' / 'german_credit.csv',
+                     names=['default', 'account_check_status', 'duration_in_month', 'credit_history',
+                            'purpose', 'credit_amount', 'savings', 'present_emp_since',
+                            'installment_as_income_perc', 'personal_status_sex', 'other_debtors',
+                            'present_res_since', 'property', 'age', 'other_installment_plans', 'housing',
+                            'credits_this_bank', 'job', 'people_under_maintenance', 'telephone', 'foreign_worker'],
+                     header=0)
+
+    # label normalization
+    df.rename({'default': 'label'}, axis=1, inplace=True)
+
+    # schema
+    schema = {
+        'id_col': '',
+        'categorical_columns': ['account_check_status', 'credit_history',
+                                'purpose', 'savings', 'present_emp_since',
+                                'personal_status_sex', 'other_debtors',
+                                'property', 'other_installment_plans', 'housing',
+                                'job', 'telephone', 'foreign_worker'],
+        'numerical_columns': ['duration_in_month',
+                              'credit_amount',
+                              'installment_as_income_perc',
+                              'present_res_since', 'age',
+                              'credits_this_bank', 'people_under_maintenance', ],
+        'label_column': 'label'
+    }
+    check_dtypes(schema, df)
+    out_dir = Path(Path(__file__).parent / 'datasets' / 'credit_german')
+    out_dir.mkdir(exist_ok=True)
+    df.to_csv(out_dir / 'credit_german.csv', header=True, index=False)
+    with open(out_dir / 'schema.json', 'w') as out_file:
+        json.dump(schema, out_file, indent=4)
+    print('dataset: credit_german written to {}'.format(out_dir / 'credit_german.csv'))
 
 
 if __name__ == '__main__':

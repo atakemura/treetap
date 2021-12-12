@@ -1,0 +1,20 @@
+{
+    "id_col": "",
+    "categorical_columns": [
+        "workclass",
+        "education",
+        "marital-status",
+        "occupation",
+        "relationship",
+        "race",
+        "sex",
+        "native-country"
+    ],
+    "numerical_columns": [
+        "age",
+        "capital-gain",
+        "capital-loss",
+        "hours-per-week"
+    ],
+    "label_column": "label"
+}

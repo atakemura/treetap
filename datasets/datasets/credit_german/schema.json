@@ -1,0 +1,28 @@
+{
+    "id_col": "",
+    "categorical_columns": [
+        "account_check_status",
+        "credit_history",
+        "purpose",
+        "savings",
+        "present_emp_since",
+        "personal_status_sex",
+        "other_debtors",
+        "property",
+        "other_installment_plans",
+        "housing",
+        "job",
+        "telephone",
+        "foreign_worker"
+    ],
+    "numerical_columns": [
+        "duration_in_month",
+        "credit_amount",
+        "installment_as_income_perc",
+        "present_res_since",
+        "age",
+        "credits_this_bank",
+        "people_under_maintenance"
+    ],
+    "label_column": "label"
+}
