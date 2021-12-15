@@ -28,7 +28,9 @@ def load_data(dataset_name):
                 # 50k
                 'eeg',
                 # these datasets are large (>200k), use with caution
-                'census', 'airline', 'kdd99']
+                'census', 'airline', 'kdd99',
+                # benchmark, used in papers
+                'adult', 'credit_german', 'compas']
     if dataset_name in sklearn_data.keys():
         load_data_method = sklearn_data[dataset_name]
         data_obj = load_data_method()

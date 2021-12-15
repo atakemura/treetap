@@ -651,7 +651,8 @@ def load_data(dataset_name):
                 'credit_australia', 'heart', 'ionosphere',
                 'kidney', 'krvskp', 'voting', 'census', 'airline',
                 'synthetic_1',
-                'kdd99', 'eeg', 'credit_taiwan']
+                'kdd99', 'eeg', 'credit_taiwan',
+                'credit_german', 'adult', 'compas']
     if dataset_name in sklearn_data.keys():
         load_data_method = sklearn_data[dataset_name]
         data_obj = load_data_method()
@@ -683,17 +684,25 @@ def load_data(dataset_name):
 if __name__ == '__main__':
     jvm.start()
     for data in [
-                 'autism', 'breast', 'cars',
-                 'credit_australia',
-                 'heart',
-                 'ionosphere', 'kidney', 'krvskp', 'voting',
-                 'census',
-                 # 'airline',
-                 'eeg',
-                 # 'kdd99',
-                 'synthetic_1',
-                 'credit_taiwan'
-                 ]:
+        'autism',
+        'breast',
+        'cars',
+        'credit_australia',
+        'heart',
+        'ionosphere',
+        'kidney',
+        'krvskp',
+        'voting',
+        'census',
+        # 'airline',
+        'eeg',
+        # 'kdd99',
+        'synthetic_1',
+        'credit_taiwan',
+        'credit_german',
+        'adult',
+        'compas'
+    ]:
         print('='*40, data, '='*40)
         run_experiment(data)
 

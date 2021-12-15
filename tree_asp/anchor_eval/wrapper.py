@@ -14,7 +14,7 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from pathlib import Path
 import os
 from timeit import default_timer as timer
-from pprint import pprint
+import re
 
 
 SEED = 2020
@@ -160,6 +160,8 @@ def run_experiment(dataset_name):
     if len(categorical_features) > 0:
         oh = OneHotEncoder(cols=categorical_features, use_cat_names=True)
         cat_X = oh.fit_transform(X)
+        # avoid LightGBM Special character JSON error
+        cat_X = cat_X.rename(columns=lambda x: re.sub('[^A-Za-z0-9_]+', '', x))
 
     # multilabel case
     num_classes = y.nunique()
@@ -329,7 +331,8 @@ def load_data(dataset_name):
                 'credit_australia', 'heart', 'ionosphere',
                 'kidney', 'krvskp', 'voting', 'census', 'airline',
                 'synthetic_1',
-                'kdd99', 'eeg', 'credit_taiwan']
+                'kdd99', 'eeg', 'credit_taiwan',
+                'credit_german', 'adult', 'compas']
     if dataset_name in sklearn_data.keys():
         load_data_method = sklearn_data[dataset_name]
         data_obj = load_data_method()
@@ -360,16 +363,24 @@ def load_data(dataset_name):
 
 if __name__ == '__main__':
     for data in [
-                 'autism', 'breast',
-                 'cars',
-                 'credit_australia', 'heart',
-                 'ionosphere', 'kidney', 'krvskp', 'voting',
-                 'census',
-                 # 'airline',
-                 # 'eeg',
-                 # 'kdd99',
-                 'synthetic_1',
-                 'credit_taiwan'
-                 ]:
+        'autism',
+        'breast',
+        'cars',
+        'credit_australia',
+        'heart',
+        'ionosphere',
+        'kidney',
+        'krvskp',
+        'voting',
+        'census',
+         # 'airline',
+         # 'eeg',
+         # 'kdd99',
+        'synthetic_1',
+        'credit_taiwan'
+        'credit_german',
+        'adult',
+        'compas'
+    ]:
         print('='*40, data, '='*40)
         run_experiment(data)

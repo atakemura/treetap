@@ -539,7 +539,7 @@ def adult_parser():
     # impute missing values
     for c in df.columns:
         if '?' in list(df[c].unique()):
-            df[c].replace({'?': df[c].mode()}, inplace=True)
+            df[c].replace({'?': df[c].mode()[0]}, inplace=True)
 
     # label normalization
     df.rename({'class': 'label'}, axis=1, inplace=True)

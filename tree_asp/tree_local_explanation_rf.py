@@ -21,6 +21,7 @@ from clasp_parser import generate_answers
 from hyperparameter import optuna_random_forest
 from rule import Rule
 from utils import load_data
+import re
 
 
 SEED = 2020
@@ -32,6 +33,8 @@ def run_experiment(dataset_name):
     if len(categorical_features) > 0:
         oh = OneHotEncoder(cols=categorical_features, use_cat_names=True)
         X = oh.fit_transform(X)
+        # avoid special character error
+        X = X.rename(columns=lambda x: re.sub('[^A-Za-z0-9_]+', '', x))
     feat = X.columns
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=2020)
@@ -384,14 +387,23 @@ if __name__ == '__main__':
     debug_mode = True
 
     if debug_mode:
-        data = ['autism', 'breast',
-                'cars',
-                'credit_australia',
-                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
-                'credit_taiwan',
-                # 'eeg',
-                'census',
-                # 'synthetic_1'
+        data = [
+            'autism',
+            'breast',
+            'cars',
+            'credit_australia',
+            'heart',
+            'ionosphere',
+            'kidney',
+            'krvskp',
+            'voting',
+            'credit_taiwan',
+            # 'eeg',
+            'census',
+            # 'synthetic_1'
+            'adult',
+            'credit_german',
+            'compas'
                 ]
     else:
         data = ['breast_sk', 'iris', 'wine',

@@ -416,16 +416,25 @@ if __name__ == '__main__':
     debug_mode = True
 
     if debug_mode:
-        data = ['autism', 'breast',
-                'cars',
-                'credit_australia',
-                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
-                'credit_taiwan',
-                # 'eeg',
-                'census',
-                # 'kdd99',
-                # 'airline'
-                'synthetic_1'
+        data = [
+            'autism',
+            'breast',
+            'cars',
+            'credit_australia',
+            'heart',
+            'ionosphere',
+            'kidney',
+            'krvskp',
+            'voting',
+            'credit_taiwan',
+            # 'eeg',
+            'census',
+            # 'kdd99',
+            # 'airline'
+            'synthetic_1'
+            'adult',
+            'credit_german',
+            'compas'
         ]
     else:
         data = ['autism', 'breast', 'cars', 'credit_australia',
