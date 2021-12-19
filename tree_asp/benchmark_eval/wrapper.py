@@ -210,5 +210,5 @@ if __name__ == '__main__':
         'adult',
         'compas'
     ]:
-        time_print('='*40, data, '='*40)
+        time_print('='*40 + data + '='*40)
         run_experiment(data)
