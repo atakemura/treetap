@@ -555,6 +555,9 @@ def run_experiment(dataset_name):
             'fit_predict_time': j48_end - j48_optuna_end
         }
 
+        with open(log_json, 'a', encoding='utf-8') as out_log_json:
+            out_log_json.write(json.dumps(j48_dict) + '\n')
+
         ripper_start = timer()
         ripper_best_params = optuna_weka_ripper(x_train, y_train)
         ripper_optuna_end = timer()
@@ -580,6 +583,9 @@ def run_experiment(dataset_name):
             'optuna_time': ripper_optuna_end - ripper_start,
             'fit_predict_time': ripper_end - ripper_optuna_end
         }
+
+        with open(log_json, 'a', encoding='utf-8') as out_log_json:
+            out_log_json.write(json.dumps(ripper_dict) + '\n')
 
         part_start = timer()
         part_best_params = optuna_weka_part(x_train, y_train)
@@ -608,8 +614,6 @@ def run_experiment(dataset_name):
         }
 
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
-            out_log_json.write(json.dumps(j48_dict) + '\n')
-            out_log_json.write(json.dumps(ripper_dict) + '\n')
             out_log_json.write(json.dumps(part_dict) + '\n')
 
 
