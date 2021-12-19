@@ -37,10 +37,22 @@ def run_experiment(dataset_name):
 def run_one_round(dataset_name,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
     experiment_tag = 'lgb_{}_{}'.format(dataset_name, fold)
+    exp_dir = './tmp/journal/local'
+    # if model exists, skip training
+    model_path = os.path.join(exp_dir, experiment_tag+'_lgbmodel.bst')
+    param_path = os.path.join(exp_dir, experiment_tag+'_lgbmodel_params.pkl')
+    extractor_path = os.path.join(exp_dir, experiment_tag+'_extractor.pkl')
+    tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
+    tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
+
+    log_json = os.path.join(exp_dir, 'output.json')
+    log_json_quali = os.path.join(exp_dir, 'output_quali.json')
+    le_log_json = os.path.join(exp_dir, 'local_explanation.json')
+
+    n_local_instances = 100
+
     print('=' * 30, experiment_tag, '=' * 30)
     start = timer()
-
-    exp_dir = './tmp/test/local'
 
     x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
     x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
@@ -51,9 +63,7 @@ def run_one_round(dataset_name,
 
     print('lgb-training start')
     lgb_start = timer()
-    # if model exists, skip training
-    model_path = os.path.join(exp_dir, experiment_tag+'_lgbmodel.bst')
-    param_path = os.path.join(exp_dir, experiment_tag+'_lgbmodel_params.pkl')
+
     if os.path.exists(model_path):
         model = lgb.Booster(model_file=model_path)
         with open(param_path, 'rb') as param_in:
@@ -99,7 +109,7 @@ def run_one_round(dataset_name,
     print('rule extraction start')
     ext_start = timer()
     # if already fit extractor exists, skip
-    extractor_path = os.path.join(exp_dir, experiment_tag+'_extractor.pkl')
+
     if os.path.exists(extractor_path):
         with open(extractor_path, 'rb') as ext_pkl:
             lgb_extractor = pickle.load(ext_pkl)
@@ -114,9 +124,6 @@ def run_one_round(dataset_name,
     ext_end = timer()
     print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
                                                                         round(ext_end - start)))
-
-    tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
-    tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
         outfile.write(res_str)
@@ -174,10 +181,6 @@ def run_one_round(dataset_name,
     else:
         answers, clasp_info = None, None
     end = timer()
-    # print('parsing completed')
-
-    log_json = os.path.join(exp_dir, 'output.json')
-    log_json_quali = os.path.join(exp_dir, 'output_quali.json')
 
     if clingo_completed and clasp_info is not None:
         py_rule_start = timer()
@@ -313,13 +316,13 @@ def run_one_round(dataset_name,
     local_lgb_extractor = LGBMLocalRuleExtractor()
     local_lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
 
-    sample_idx = x_valid.sample(100, replace=True).index
+    sample_idx = x_valid.sample(n_local_instances, replace=True).index
     sampled_x_valid, sampled_y_valid = x_valid.loc[sample_idx], y_valid.loc[sample_idx]
 
     le_score_store = {}
 
     for s_idx, v_idx in enumerate(sample_idx):
-        print('local explanation {}/100'.format(s_idx+1))
+        print('local explanation {}/{}'.format(s_idx+1, n_local_instances))
         # given a single data point, find paths and rules that fire, leading to the conclusion
         local_asp_prestr = local_lgb_extractor.transform(x_valid.loc[[v_idx]], y_valid.loc[v_idx], model=model)
         if len(local_asp_prestr) > 1:
@@ -404,7 +407,7 @@ def run_one_round(dataset_name,
         'fold': fold,
         'local_explanation_scores': le_score_store
     }
-    le_log_json = os.path.join(exp_dir, 'local_explanation.json')
+
     with open(le_log_json, 'a', encoding='utf-8') as out_log_json:
         out_log_json.write(json.dumps(le_out_dict)+'\n')
 

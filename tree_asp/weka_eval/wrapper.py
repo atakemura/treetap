@@ -2,19 +2,18 @@ import pandas as pd
 import numpy as np
 import weka.core.jvm as jvm
 import optuna
+import json
+import arff
+import os
 
 from weka.classifiers import Classifier
 from weka.core.converters import load_any_file
-
 from sklearn.metrics import accuracy_score, precision_score, f1_score, recall_score, roc_auc_score
-import json
 from sklearn.model_selection import StratifiedKFold, train_test_split
-from sklearn.datasets import load_iris, load_wine, load_breast_cancer
-from pathlib import Path
-import arff
-import os
 from tempfile import NamedTemporaryFile
 from timeit import default_timer as timer
+
+from utils import load_data
 
 
 class WekaJ48:
@@ -509,6 +508,9 @@ def optuna_weka_part(X, y):
 
 
 def run_experiment(dataset_name):
+    exp_dir = './tmp/journal/benchmark'
+    log_json = os.path.join(exp_dir, 'weka.json')
+
     X, y = load_data(dataset_name)
     categorical_features = list(X.columns[X.dtypes == 'category'])
     # if len(categorical_features) > 0:
@@ -605,80 +607,10 @@ def run_experiment(dataset_name):
             'fit_predict_time': part_end - part_optuna_end
         }
 
-        exp_dir = '../tmp/journal/weka'
-        log_json = os.path.join(exp_dir, 'output.json')
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
             out_log_json.write(json.dumps(j48_dict) + '\n')
             out_log_json.write(json.dumps(ripper_dict) + '\n')
             out_log_json.write(json.dumps(part_dict) + '\n')
-        # train_arff = create_temp_arff(pd.concat([x_train, y_train], axis=1), 'train')
-        # valid_arff = create_temp_arff(pd.concat([x_valid, y_valid], axis=1), 'valid')
-        # try:
-        #     train = load_any_file(train_arff.name, class_index='last')
-        #     valid = load_any_file(valid_arff.name, class_index='last')
-        #     print([a.type_str() for a in train.attributes()])
-        #
-        #     num2nominal = Filter(classname='weka.filters.unsupervised.attribute.NumericToNominal',
-        #                          options=['-R', 'last'])
-        #     num2nominal.inputformat(train)
-        #
-        #     train_filtered = num2nominal.filter(train)
-        #     valid_filtered = num2nominal.filter(valid)
-        #
-        #     cls = Classifier(classname='weka.classifiers.trees.J48',
-        #                      options=['-C', '0.3']
-        #                      )
-        #     cls.build_classifier(train_filtered)
-        #     print(cls)
-        #
-        #     for idx, inst in enumerate(valid_filtered):
-        #         pred = cls.classify_instance(inst)
-        #         dist = cls.distribution_for_instance(inst)
-        # except:
-        #     raise
-        # finally:
-        #     os.remove(train_arff.name)
-        #     os.remove(valid_arff.name)
-
-
-def load_data(dataset_name):
-    # there is no categorical feature in these sklearn datasets.
-    sklearn_data = {'iris': load_iris,
-                    'breast_sk': load_breast_cancer,
-                    'wine': load_wine}
-    # the following contains a mix of categorical and numerical features.
-    datasets = ['autism', 'breast', 'cars',
-                'credit_australia', 'heart', 'ionosphere',
-                'kidney', 'krvskp', 'voting', 'census', 'airline',
-                'synthetic_1',
-                'kdd99', 'eeg', 'credit_taiwan',
-                'credit_german', 'adult', 'compas']
-    if dataset_name in sklearn_data.keys():
-        load_data_method = sklearn_data[dataset_name]
-        data_obj = load_data_method()
-        feat = data_obj['feature_names']
-        data = data_obj['data']
-        target = data_obj['target']
-
-        df = pd.DataFrame(data, columns=feat).assign(target=target)
-        X, y = df[feat], df['target']
-        dataset = (X, y)
-    elif dataset_name in datasets:
-        dataset_dir = Path('../../datasets/datasets/') / dataset_name
-
-        raw = pd.read_csv(Path(dataset_dir / dataset_name).with_suffix('.csv'))
-        with open(dataset_dir / 'schema.json', 'r') as infile:
-            schema = json.load(infile)
-        for c in schema['categorical_columns']:
-            raw.loc[:, c] = raw.loc[:, c].astype('category')
-        raw_x = raw[[c for c in raw.columns if c != schema['label_column']]].copy()
-        if schema['id_col'] != "":
-            raw_x.drop(schema['id_col'], axis=1, inplace=True)
-        raw_y = raw[schema['label_column']]
-        dataset = (raw_x, raw_y)
-    else:
-        raise ValueError('unrecognized dataset name: {}'.format(dataset_name))
-    return dataset
 
 
 if __name__ == '__main__':
@@ -695,7 +627,7 @@ if __name__ == '__main__':
         'voting',
         'census',
         # 'airline',
-        'eeg',
+        # 'eeg',
         # 'kdd99',
         'synthetic_1',
         'credit_taiwan',

@@ -3,6 +3,7 @@ import optuna
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from sklearn.ensemble import RandomForestClassifier
+from rulefit import RuleFit
 
 
 def optuna_random_forest(X, y, random_state=2020):
@@ -130,4 +131,63 @@ def optuna_lgb(X, y, static_params, random_state=2020):
     study = optuna.create_study(direction='minimize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=600, callbacks=[optuna_early_stopping_callback], n_jobs=1)
+    return study.best_params
+
+
+def optuna_rulefit(X, y, rf_params=None, random_state=2020):
+    early_stopping_dict = {'early_stopping_limit': 30,
+                           'early_stop_count': 0,
+                           'best_score': None}
+
+    def optuna_early_stopping_callback(study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
+        if early_stopping_dict['best_score'] is None:
+            early_stopping_dict['best_score'] = study.best_value
+
+        if study.direction == optuna.study.StudyDirection.MAXIMIZE:
+            if study.best_value > early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        elif study.direction == optuna.study.StudyDirection.MINIMIZE:
+            if study.best_value < early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        else:
+            raise ValueError('Unknown study direction: {}'.format(study.direction))
+        return
+
+    def objective(trial: optuna.Trial):
+        # numeric: tree_size, sample_fract, max_rules, memory_par,
+        # bool: lin_standardise, lin_trim_quantile,
+        params = {# 'tree_size': trial.suggest_int('tree_size', 50, 500, 10),
+                  # 'sample_fract': trial.suggest_float('sample_fract', 0.01, 1.0, step=0.02),
+                  # 'max_rules': trial.suggest_int('max_rules', 10, 100),
+                  'memory_par': trial.suggest_float('memory_par', 0.0, 1.0, step=0.1),
+                  'lin_standardise': trial.suggest_categorical('lin_standardise', [True, False]),
+                  'lin_trim_quantile': trial.suggest_categorical('lin_trim_quantile', [True, False]),
+        }
+        rf = RandomForestClassifier(n_jobs=1, random_state=random_state, **rf_params)
+        rfit = RuleFit(tree_generator=rf, max_rules=500, rfmode='classify', n_jobs=1,
+                       random_state=random_state, **params)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state)
+        rfit.fit(x_train, y_train, feature_names=x_train.columns)
+        try:
+            y_pred = rfit.predict(x_valid)
+        # this sometimes raises IndexError rulefit.py:281 res_[:,coefs!=0]=res
+        except IndexError:
+            return 0   # skip this trial
+        acc = accuracy_score(y_valid, y_pred)
+        return acc
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params

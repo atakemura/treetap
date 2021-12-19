@@ -1,18 +1,17 @@
 import json
 import lightgbm as lgb
 import os
-import pandas as pd
 import numpy as np
 import subprocess
-import optuna
 
-from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from itertools import product
 from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
 
+from hyperparameter import optuna_lgb
 from rule_extractor import LGBMGlobalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
@@ -35,82 +34,15 @@ def run_experiment(dataset_name, encoding):
                       train_idx, valid_idx, X, y, feat, fold=f_idx)
 
 
-def optuna_lgb(X, y, static_params):
-    early_stopping_dict = {'early_stopping_limit': 30,
-                           'early_stop_count': 0,
-                           'best_score': None}
-    # optuna.logging.set_verbosity(optuna.logging.WARNING)
-
-    def optuna_early_stopping_callback(study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
-        if early_stopping_dict['best_score'] is None:
-            early_stopping_dict['best_score'] = study.best_value
-
-        if study.direction == optuna.study.StudyDirection.MAXIMIZE:
-            if study.best_value > early_stopping_dict['best_score']:
-                early_stopping_dict['best_score'] = study.best_value
-                early_stopping_dict['early_stop_count'] = 0
-            else:
-                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
-                    study.stop()
-                else:
-                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
-        elif study.direction == optuna.study.StudyDirection.MINIMIZE:
-            if study.best_value < early_stopping_dict['best_score']:
-                early_stopping_dict['best_score'] = study.best_value
-                early_stopping_dict['early_stop_count'] = 0
-            else:
-                early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
-                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
-                    study.stop()
-                else:
-                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
-        else:
-            raise ValueError('Unknown study direction: {}'.format(study.direction))
-        return
-
-    def objective(trial: optuna.Trial):
-        params = {'learning_rate': trial.suggest_loguniform('learning_rate', 0.01, 0.2),
-                  'max_depth': trial.suggest_int('max_depth', 2, 10),
-                  'num_leaves': trial.suggest_int('num_leaves', 2, 100),
-                  'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 500),
-                  'min_child_weight': trial.suggest_loguniform('min_child_weight', 1e-3, 1e+1),
-                  'feature_fraction': trial.suggest_uniform('feature_fraction', 0.05, 1.0),
-                  'subsample': trial.suggest_uniform('subsample', 0.2, 1.0),
-                  'subsample_freq': trial.suggest_int('subsample_freq', 1, 20),
-                  'lambda_l1': trial.suggest_loguniform('lambda_l1', 1e-5, 10),
-                  'lambda_l2': trial.suggest_loguniform('lambda_l2', 1e-5, 10),
-                  }
-        all_params = {**params, **static_params}
-
-        pruning_callback = optuna.integration.LightGBMPruningCallback(trial, all_params['metric'], valid_name='valid')
-        num_boost_round = 1000
-        early_stopping = 30
-        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=SEED)
-        train_data = lgb.Dataset(x_train, label=y_train)
-        valid_data = lgb.Dataset(x_valid, label=y_valid, reference=train_data)
-
-        model = lgb.train(all_params, train_data,
-                          num_boost_round=num_boost_round,
-                          early_stopping_rounds=early_stopping,
-                          valid_sets=[valid_data],
-                          valid_names=['valid'],
-                          callbacks=[pruning_callback],
-                          verbose_eval=False)
-        if static_params['num_classes'] > 1:
-            score = model.best_score['valid']['multi_logloss']
-        else:
-            score = model.best_score['valid']['binary_logloss']
-        return score
-    sampler = optuna.samplers.TPESampler(seed=SEED)
-    study = optuna.create_study(direction='minimize', sampler=sampler,
-                                pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.optimize(objective, n_trials=100, timeout=600, callbacks=[optuna_early_stopping_callback], n_jobs=1)
-    return study.best_params
-
-
 def run_one_round(dataset_name, encoding,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
     experiment_tag = 'lgb_{}_{}_{}'.format(dataset_name, encoding, fold)
+    exp_dir = './tmp/journal/global'
+    tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
+    tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
+    log_json = os.path.join(exp_dir, 'output.json')
+    log_json_quali = os.path.join(exp_dir, 'output_quali.json')
+
     print('=' * 30, experiment_tag, '=' * 30)
     start = timer()
 
@@ -165,11 +97,6 @@ def run_one_round(dataset_name, encoding,
     ext_end = timer()
     print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
                                                                         round(ext_end - start)))
-
-    exp_dir = './tmp/test'
-
-    tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
-    tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
         outfile.write(res_str)
@@ -227,10 +154,6 @@ def run_one_round(dataset_name, encoding,
     else:
         answers, clasp_info = None, None
     end = timer()
-    # print('parsing completed')
-
-    log_json = os.path.join(exp_dir, 'output.json')
-    log_json_quali = os.path.join(exp_dir, 'output_quali.json')
 
     if clingo_completed and clasp_info is not None:
         py_rule_start = timer()
