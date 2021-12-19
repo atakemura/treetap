@@ -16,7 +16,7 @@ from rule_extractor import LGBMGlobalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
-from utils import load_data
+from utils import load_data, time_print
 
 
 SEED = 2020
@@ -43,7 +43,7 @@ def run_one_round(dataset_name, encoding,
     log_json = os.path.join(exp_dir, 'output.json')
     log_json_quali = os.path.join(exp_dir, 'output_quali.json')
 
-    print('=' * 30, experiment_tag, '=' * 30)
+    time_print('=' * 30 + experiment_tag + '=' * 30)
     start = timer()
 
 
@@ -55,7 +55,7 @@ def run_one_round(dataset_name, encoding,
     metric_averaging = 'micro' if num_classes > 2 else 'binary'
 
     lgb_start = timer()
-    print('lgb-training start')
+    time_print('lgb-training start')
     # using native api
     lgb_train = lgb.Dataset(data=x_train,
                             label=y_train)
@@ -76,7 +76,7 @@ def run_one_round(dataset_name, encoding,
                       valid_sets=[lgb_valid],
                       valid_names=['valid'], num_boost_round=1000, early_stopping_rounds=50, verbose_eval=False)
     lgb_end = timer()
-    print('lgb-training completed {} seconds | {} from start'.format(round(lgb_end - lgb_start),
+    time_print('lgb-training completed {} seconds | {} from start'.format(round(lgb_end - lgb_start),
                                                                      round(lgb_end - start)))
 
     if num_classes > 2:
@@ -90,12 +90,12 @@ def run_one_round(dataset_name, encoding,
                        'auc':       roc_auc_score(y_valid, lgb_vanilla_pred)}
 
     ext_start = timer()
-    print('rule extraction start')
+    time_print('rule extraction start')
     lgb_extractor = LGBMGlobalRuleExtractor()
     lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
     res_str = lgb_extractor.transform(x_train, y_train)
     ext_end = timer()
-    print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
+    time_print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
                                                                         round(ext_end - start)))
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
@@ -133,7 +133,7 @@ def run_one_round(dataset_name, encoding,
     #                      'lexico': asprin_lexico, 'pareto_test': asprin_pareto}
 
     clingo_start = timer()
-    print('clingo start')
+    time_print('clingo start')
     try:
         # o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
         #                     tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=16'
@@ -146,7 +146,7 @@ def run_one_round(dataset_name, encoding,
         o = None
         clingo_completed = False
     clingo_end = timer()
-    print('clingo completed {} seconds | {} from start'.format(round(clingo_end - clingo_start),
+    time_print('clingo completed {} seconds | {} from start'.format(round(clingo_end - clingo_start),
                                                                round(clingo_end - start)))
 
     if clingo_completed:
@@ -157,7 +157,7 @@ def run_one_round(dataset_name, encoding,
 
     if clingo_completed and clasp_info is not None:
         py_rule_start = timer()
-        print('py rule evaluation start')
+        time_print('py rule evaluation start')
         scores = []
         for ans_idx, ans_set in enumerate(answers):
             if not ans_set.is_optimal:
@@ -178,7 +178,7 @@ def run_one_round(dataset_name, encoding,
                                  'auc': roc_auc_score(y_valid, rule_pred)}
             scores.append((ans_idx, rule_pred_metrics))
         py_rule_end = timer()
-        print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
+        time_print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
                                                                                round(py_rule_end - start)))
 
         out_dict = {
@@ -255,7 +255,7 @@ def run_one_round(dataset_name, encoding,
         for ans_idx, ans_set in enumerate(answers):
             _tmp_rules = []
             if not ans_set.is_optimal:
-                # print('Skipping non-optimal answer: {}'.format(ans_set.answer_id))
+                # time_print('Skipping non-optimal answer: {}'.format(ans_set.answer_id))
                 continue
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
@@ -275,14 +275,14 @@ def run_one_round(dataset_name, encoding,
                 _tmp_rules.append(pat_dict)
             out_quali['rules'].append((ans_idx, _tmp_rules))
     out_quali_end = timer()
-    print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
+    time_print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
                                                             round(out_quali_end - start)))
 
     if verbose:
         with open(log_json_quali, 'a', encoding='utf-8') as out_log_quali:
             out_log_quali.write(json.dumps(out_quali)+'\n')
 
-    print('completed {} from start'.format(round(timer() - start)))
+    time_print('completed {} from start'.format(round(timer() - start)))
 
 
 if __name__ == '__main__':
@@ -322,4 +322,4 @@ if __name__ == '__main__':
         run_experiment(*cond_tuple)
     end_time = timer()
     e = end_time - start_time
-    print('Time elapsed(s): {}'.format(e))
+    time_print('Time elapsed(s): {}'.format(e))

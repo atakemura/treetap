@@ -16,7 +16,7 @@ from rule_extractor import LGBMGlobalRuleExtractor, LGBMLocalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
-from utils import load_data
+from utils import load_data, time_print
 
 
 SEED = 2020
@@ -51,7 +51,7 @@ def run_one_round(dataset_name,
 
     n_local_instances = 100
 
-    print('=' * 30, experiment_tag, '=' * 30)
+    time_print('=' * 30 + experiment_tag + '=' * 30)
     start = timer()
 
     x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
@@ -61,7 +61,7 @@ def run_one_round(dataset_name,
     num_classes = y_valid.nunique()
     metric_averaging = 'micro' if num_classes > 2 else 'binary'
 
-    print('lgb-training start')
+    time_print('lgb-training start')
     lgb_start = timer()
 
     if os.path.exists(model_path):
@@ -93,7 +93,7 @@ def run_one_round(dataset_name,
             pickle.dump(hyperparams, param_out, protocol=pickle.HIGHEST_PROTOCOL)
 
     lgb_end = timer()
-    print('lgb-training completed {} seconds | {} from start'.format(round(lgb_end - lgb_start),
+    time_print('lgb-training completed {} seconds | {} from start'.format(round(lgb_end - lgb_start),
                                                                      round(lgb_end - start)))
 
     if num_classes > 2:
@@ -106,7 +106,7 @@ def run_one_round(dataset_name,
                        'f1':        f1_score(y_valid, lgb_vanilla_pred, average=metric_averaging),
                        'auc':       roc_auc_score(y_valid, lgb_vanilla_pred)}
 
-    print('rule extraction start')
+    time_print('rule extraction start')
     ext_start = timer()
     # if already fit extractor exists, skip
 
@@ -122,7 +122,7 @@ def run_one_round(dataset_name,
         with open(extractor_path, 'wb') as ext_out:
             pickle.dump(lgb_extractor, ext_out, protocol=pickle.HIGHEST_PROTOCOL)
     ext_end = timer()
-    print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
+    time_print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
                                                                         round(ext_end - start)))
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
@@ -160,7 +160,7 @@ def run_one_round(dataset_name,
     #                      'lexico': asprin_lexico, 'pareto_test': asprin_pareto}
 
     clingo_start = timer()
-    print('clingo start')
+    time_print('clingo start')
     try:
         # o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
         #                     tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=16'
@@ -173,7 +173,7 @@ def run_one_round(dataset_name,
         o = None
         clingo_completed = False
     clingo_end = timer()
-    print('clingo completed {} seconds | {} from start'.format(round(clingo_end - clingo_start),
+    time_print('clingo completed {} seconds | {} from start'.format(round(clingo_end - clingo_start),
                                                                round(clingo_end - start)))
 
     if clingo_completed:
@@ -184,7 +184,7 @@ def run_one_round(dataset_name,
 
     if clingo_completed and clasp_info is not None:
         py_rule_start = timer()
-        print('py rule evaluation start')
+        time_print('py rule evaluation start')
         scores = []
         for ans_idx, ans_set in enumerate(answers):
             if not ans_set.is_optimal:
@@ -205,7 +205,7 @@ def run_one_round(dataset_name,
                                  'auc': roc_auc_score(y_valid, rule_pred)}
             scores.append((ans_idx, rule_pred_metrics))
         py_rule_end = timer()
-        print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
+        time_print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
                                                                                round(py_rule_end - start)))
 
         out_dict = {
@@ -282,7 +282,7 @@ def run_one_round(dataset_name,
         for ans_idx, ans_set in enumerate(answers):
             _tmp_rules = []
             if not ans_set.is_optimal:
-                # print('Skipping non-optimal answer: {}'.format(ans_set.answer_id))
+                # time_print('Skipping non-optimal answer: {}'.format(ans_set.answer_id))
                 continue
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
@@ -302,7 +302,7 @@ def run_one_round(dataset_name,
                 _tmp_rules.append(pat_dict)
             out_quali['rules'].append((ans_idx, _tmp_rules))
     out_quali_end = timer()
-    print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
+    time_print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
                                                             round(out_quali_end - start)))
 
     if verbose:
@@ -310,7 +310,7 @@ def run_one_round(dataset_name,
             out_log_quali.write(json.dumps(out_quali)+'\n')
 
     # local explanation using rules (not through clingo because it's not supposed to be a global approximation)
-    print('local explanation start')
+    time_print('local explanation start')
     le_start = timer()
 
     local_lgb_extractor = LGBMLocalRuleExtractor()
@@ -322,7 +322,7 @@ def run_one_round(dataset_name,
     le_score_store = {}
 
     for s_idx, v_idx in enumerate(sample_idx):
-        print('local explanation {}/{}'.format(s_idx+1, n_local_instances))
+        time_print('local explanation {}/{}'.format(s_idx+1, n_local_instances))
         # given a single data point, find paths and rules that fire, leading to the conclusion
         local_asp_prestr = local_lgb_extractor.transform(x_valid.loc[[v_idx]], y_valid.loc[v_idx], model=model)
         if len(local_asp_prestr) > 1:
@@ -377,7 +377,7 @@ def run_one_round(dataset_name,
         le_score_store[s_idx] = scores
 
     le_end = timer()
-    print('local explanation completed {} seconds | {} from start'.format(round(le_end - le_start),
+    time_print('local explanation completed {} seconds | {} from start'.format(round(le_end - le_start),
                                                                           round(le_end - start)))
     le_out_dict = {
         # experiment
@@ -411,7 +411,7 @@ def run_one_round(dataset_name,
     with open(le_log_json, 'a', encoding='utf-8') as out_log_json:
         out_log_json.write(json.dumps(le_out_dict)+'\n')
 
-    print('completed {} from start'.format(round(timer() - start)))
+    time_print('completed {} from start'.format(round(timer() - start)))
 
 if __name__ == '__main__':
     start_time = timer()
@@ -453,4 +453,4 @@ if __name__ == '__main__':
         run_experiment(d)
     end_time = timer()
     e = end_time - start_time
-    print('Time elapsed(s): {}'.format(e))
+    time_print('Time elapsed(s): {}'.format(e))

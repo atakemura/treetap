@@ -12,7 +12,7 @@ from sklearn.model_selection import StratifiedKFold
 from timeit import default_timer as timer
 
 from hyperparameter import optuna_lgb, optuna_random_forest
-from utils import load_data
+from utils import load_data, time_print
 
 
 SEED = 2020
@@ -45,7 +45,7 @@ def run_experiment(dataset_name):
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
-        print('fold={}'.format(f_idx+1))
+        time_print('fold={}'.format(f_idx+1))
         x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
@@ -54,7 +54,7 @@ def run_experiment(dataset_name):
             x_valid = cat_X.iloc[valid_idx]
 
         rf_start = timer()
-        print('rf optuna start...')
+        time_print('rf optuna start...')
         rf_best_params = optuna_random_forest(x_train, y_train)
         rf_optuna_end = timer()
         rf = RandomForestClassifier(**rf_best_params, n_jobs=-1, random_state=SEED)
@@ -62,7 +62,7 @@ def run_experiment(dataset_name):
         y_pred = rf.predict(x_valid)
         rf_fit_predict_end = timer()
         acc = accuracy_score(y_valid, y_pred)
-        print('rf fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        time_print('rf fold {} acc {}'.format(f_idx+1, round(acc, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -70,7 +70,7 @@ def run_experiment(dataset_name):
                            'auc': roc_auc_score(y_valid, y_pred)}
 
         rf_anchor_start = timer()
-        print('rf anchor start...')
+        time_print('rf anchor start...')
         explainer = anchor_tabular.AnchorTabularExplainer(y.unique(), x_train.columns,
                                                           x_train.to_numpy())
         rf_train_covs = []
@@ -81,7 +81,7 @@ def run_experiment(dataset_name):
         mat_x_valid = x_valid.sample(anchor_n_instances, replace=True).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
             if ((v_idx+1) % 10) == 0:
-                print('rf anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
+                time_print('rf anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
             ae = anchor_explain_single(mat_x_valid[v_idx, :], explainer, rf)
             fit_anchor = np.where(np.all(mat_x_valid[:, ae.features()] == mat_x_valid[v_idx][ae.features()], axis=1))[0]
             cov = fit_anchor.shape[0] / float(mat_x_valid.shape[0])
@@ -119,7 +119,7 @@ def run_experiment(dataset_name):
             out_log_json.write(json.dumps(rf_dict) + '\n')
 
         lgb_start = timer()
-        print('lgb optuna start...')
+        time_print('lgb optuna start...')
         lgb_train = lgb.Dataset(data=x_train,
                                 label=y_train)
         lgb_valid = lgb.Dataset(data=x_valid,
@@ -146,7 +146,7 @@ def run_experiment(dataset_name):
         lgb_fit_predict_end = timer()
 
         acc = accuracy_score(y_valid, y_pred)
-        print('lgb fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        time_print('lgb fold {} acc {}'.format(f_idx+1, round(acc, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -154,7 +154,7 @@ def run_experiment(dataset_name):
                            'auc': roc_auc_score(y_valid, y_pred)}
 
         lgb_anchor_start = timer()
-        print('lgb anchor start...')
+        time_print('lgb anchor start...')
         explainer = anchor_tabular.AnchorTabularExplainer(y.unique(), x_train.columns,
                                                           x_train.to_numpy())
         lgb_train_covs = []
@@ -165,7 +165,7 @@ def run_experiment(dataset_name):
         mat_x_valid = x_valid.sample(anchor_n_instances, replace=True).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
             if ((v_idx+1) % 10) == 0:
-                print('lgb anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
+                time_print('lgb anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
             # if you don't make a copy, lightgbm complains about memory issue
             v_cp = np.copy(mat_x_valid[v_idx,:].reshape(1,-1))
             ae = anchor_explain_single(v_cp, explainer, lgb_model)
@@ -225,5 +225,5 @@ if __name__ == '__main__':
         # 'adult',
         # 'compas'
     ]:
-        print('='*40, data, '='*40)
+        time_print('='*40, data, '='*40)
         run_experiment(data)

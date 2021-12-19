@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pickle
 import subprocess
+import re
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
@@ -18,8 +19,7 @@ from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from hyperparameter import optuna_random_forest
 from rule import Rule
-from utils import load_data
-import re
+from utils import load_data, time_print
 
 
 SEED = 2020
@@ -58,7 +58,7 @@ def run_one_round(dataset_name,
 
     n_local_instances = 100
 
-    print('=' * 30, experiment_tag, '=' * 30)
+    time_print('=' * 30 + experiment_tag + '=' * 30)
     start = timer()
 
     x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
@@ -67,7 +67,7 @@ def run_one_round(dataset_name,
     # multilabel case
     metric_averaging = 'micro' if y_valid.nunique() > 2 else 'binary'
 
-    print('rf-training start')
+    time_print('rf-training start')
     rf_start = timer()
     if os.path.exists(model_path):
         with open(model_path, 'rb') as model_in:
@@ -83,7 +83,7 @@ def run_one_round(dataset_name,
         with open(param_path, 'wb') as param_out:
             pickle.dump(hyperparams, param_out, protocol=pickle.HIGHEST_PROTOCOL)
     rf_end = timer()
-    print('rf-training completed {} seconds | {} from start'.format(round(rf_end - rf_start),
+    time_print('rf-training completed {} seconds | {} from start'.format(round(rf_end - rf_start),
                                                                     round(rf_end - start)))
 
     rf_vanilla_pred = rf.predict(x_valid)
@@ -92,7 +92,7 @@ def run_one_round(dataset_name,
                        'recall':    recall_score(y_valid, rf_vanilla_pred, average=metric_averaging),
                        'f1':        f1_score(y_valid, rf_vanilla_pred, average=metric_averaging)}
 
-    print('rule extraction start')
+    time_print('rule extraction start')
     ext_start = timer()
 
     if os.path.exists(extractor_path):
@@ -106,7 +106,7 @@ def run_one_round(dataset_name,
         with open(extractor_path, 'wb') as ext_out:
             pickle.dump(rf_extractor, ext_out, protocol=pickle.HIGHEST_PROTOCOL)
     ext_end = timer()
-    print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
+    time_print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
                                                                         round(ext_end - start)))
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
@@ -131,7 +131,7 @@ def run_one_round(dataset_name,
     # asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal, 'closed': asprin_closed}
     # asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2, 'lexico': asprin_lexico}
 
-    print('clingo start')
+    time_print('clingo start')
     clingo_start = timer()
     try:
         # o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
@@ -145,7 +145,7 @@ def run_one_round(dataset_name,
         o = None
         clingo_completed = False
     clingo_end = timer()
-    print('clingo completed {} seconds | {} from start'.format(round(clingo_end - clingo_start),
+    time_print('clingo completed {} seconds | {} from start'.format(round(clingo_end - clingo_start),
                                                                round(clingo_end - start)))
 
     if clingo_completed:
@@ -156,7 +156,7 @@ def run_one_round(dataset_name,
 
     if clingo_completed and clasp_info is not None:
         py_rule_start = timer()
-        print('py rule evaluation start')
+        time_print('py rule evaluation start')
         scores = []
         for ans_idx, ans_set in enumerate(answers):
             if not ans_set.is_optimal:
@@ -177,7 +177,7 @@ def run_one_round(dataset_name,
                                  'auc': roc_auc_score(y_valid, rule_pred)}
             scores.append((ans_idx, rule_pred_metrics))
         py_rule_end = timer()
-        print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
+        time_print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
                                                                                round(py_rule_end - start)))
 
         out_dict = {
@@ -250,7 +250,7 @@ def run_one_round(dataset_name,
         for ans_idx, ans_set in enumerate(answers):
             _tmp_rules = []
             if not ans_set.is_optimal:
-                # print('Skipping non-optimal answer: {}'.format(ans_set.answer_id))
+                # time_print('Skipping non-optimal answer: {}'.format(ans_set.answer_id))
                 continue
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
@@ -270,7 +270,7 @@ def run_one_round(dataset_name,
                 _tmp_rules.append(pat_dict)
             out_quali['rules'].append((ans_idx, _tmp_rules))
     out_quali_end = timer()
-    print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
+    time_print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
                                                             round(out_quali_end - start)))
 
     if verbose:
@@ -278,7 +278,7 @@ def run_one_round(dataset_name,
             out_log_quali.write(json.dumps(out_quali)+'\n')
 
     # local explanation using rules (not through clingo because it's not supposed to be a global approximation)
-    print('local explanation start')
+    time_print('local explanation start')
     le_start = timer()
 
     local_rf_extractor = RFLocalRuleExtractor()
@@ -290,7 +290,7 @@ def run_one_round(dataset_name,
     le_score_store = {}
 
     for s_idx, v_idx in enumerate(sample_idx):
-        print('local explanation {}/{}'.format(s_idx+1, n_local_instances))
+        time_print('local explanation {}/{}'.format(s_idx+1, n_local_instances))
         # given a single data point, find paths and rules that fire, leading to the conclusion
         local_asp_prestr = local_rf_extractor.transform(x_valid.loc[[v_idx]], y_valid.loc[v_idx], model=rf)
         if len(local_asp_prestr) > 1:
@@ -345,7 +345,7 @@ def run_one_round(dataset_name,
         le_score_store[s_idx] = scores
 
     le_end = timer()
-    print('local explanation completed {} seconds | {} from start'.format(round(le_end - le_start),
+    time_print('local explanation completed {} seconds | {} from start'.format(round(le_end - le_start),
                                                                           round(le_end - start)))
     le_out_dict = {
         # experiment
@@ -378,7 +378,7 @@ def run_one_round(dataset_name,
     with open(le_log_json, 'a', encoding='utf-8') as out_log_json:
         out_log_json.write(json.dumps(le_out_dict)+'\n')
 
-    print('completed {} from start'.format(round(timer() - start)))
+    time_print('completed {} from start'.format(round(timer() - start)))
 
 
 if __name__ == '__main__':
@@ -418,4 +418,4 @@ if __name__ == '__main__':
         run_experiment(d)
     end_time = timer()
     e = end_time - start_time
-    print('Time elapsed(s): {}'.format(e))
+    time_print('Time elapsed(s): {}'.format(e))

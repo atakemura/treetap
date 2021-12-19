@@ -12,7 +12,7 @@ from sklearn.model_selection import StratifiedKFold
 from timeit import default_timer as timer
 
 from hyperparameter import optuna_lgb, optuna_random_forest, optuna_rulefit
-from utils import load_data
+from utils import load_data, time_print
 
 
 SEED = 2020
@@ -37,12 +37,12 @@ def run_experiment(dataset_name):
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
-        print('fold={}'.format(f_idx+1))
+        time_print('fold={}'.format(f_idx+1))
         x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
         rf_start = timer()
-        print('rf optuna start...')
+        time_print('rf optuna start...')
         if cat_X is not None:
             rf_best_params = optuna_random_forest(cat_X.iloc[train_idx], y_train)
             rf_optuna_end = timer()
@@ -57,7 +57,7 @@ def run_experiment(dataset_name):
             y_pred = rf.predict(x_valid)
         rf_end = timer()
         acc = accuracy_score(y_valid, y_pred)
-        print('rf fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        time_print('rf fold {} acc {}'.format(f_idx+1, round(acc, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -77,7 +77,7 @@ def run_experiment(dataset_name):
         }
 
         lgb_start = timer()
-        print('lgb optuna start...')
+        time_print('lgb optuna start...')
         lgb_train = lgb.Dataset(data=x_train,
                                 label=y_train)
         lgb_valid = lgb.Dataset(data=x_valid,
@@ -103,7 +103,7 @@ def run_experiment(dataset_name):
             y_pred = (lgb_model.predict(x_valid) > 0.5).astype(int)
         lgb_end = timer()
         acc = accuracy_score(y_valid, y_pred)
-        print('lgb fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        time_print('lgb fold {} acc {}'.format(f_idx+1, round(acc, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -122,7 +122,7 @@ def run_experiment(dataset_name):
         }
 
         rfit_start = timer()
-        print('rule fit start...')
+        time_print('rule fit start...')
         if cat_X is not None:
             rfit_best_params = optuna_rulefit(cat_X.iloc[train_idx], y_train, rf_params=rf_best_params)
             rfit_optuna_end = timer()
@@ -159,7 +159,7 @@ def run_experiment(dataset_name):
             }
         else:  # success
             acc = accuracy_score(y_valid, y_pred)
-            print('rfit fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+            time_print('rfit fold {} acc {}'.format(f_idx+1, round(acc, 2)))
             vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                                'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                                'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -210,5 +210,5 @@ if __name__ == '__main__':
         'adult',
         'compas'
     ]:
-        print('='*40, data, '='*40)
+        time_print('='*40, data, '='*40)
         run_experiment(data)

@@ -17,7 +17,7 @@ from rule_extractor import RFGlobalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
-from utils import load_data
+from utils import load_data, time_print
 
 
 SEED = 2020
@@ -46,7 +46,7 @@ def run_one_round(dataset_name, encoding,
     log_json = os.path.join(exp_dir, 'output.json')
     log_json_quali = os.path.join(exp_dir, 'output_quali.json')
 
-    print('=' * 30, experiment_tag, '=' * 30)
+    time_print('=' * 30 + experiment_tag + '=' * 30)
     start = timer()
 
     SEED = 42
@@ -110,7 +110,7 @@ def run_one_round(dataset_name, encoding,
         o = None
         clingo_completed = False
     clingo_end = timer()
-    print('clingo completed {} seconds | {} from start'.format(round(clingo_end - clingo_start),
+    time_print('clingo completed {} seconds | {} from start'.format(round(clingo_end - clingo_start),
                                                                round(clingo_end - start)))
 
     if clingo_completed:
@@ -121,7 +121,7 @@ def run_one_round(dataset_name, encoding,
 
     if clingo_completed and clasp_info is not None:
         py_rule_start = timer()
-        print('py rule evaluation start')
+        time_print('py rule evaluation start')
         scores = []
         for ans_idx, ans_set in enumerate(answers):
             if not ans_set.is_optimal:
@@ -141,7 +141,7 @@ def run_one_round(dataset_name, encoding,
                                  'f1': f1_score(y_valid, rule_pred, average=metric_averaging)}
             scores.append((ans_idx, rule_pred_metrics))
         py_rule_end = timer()
-        print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
+        time_print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
                                                                                round(py_rule_end - start)))
 
         out_dict = {
@@ -214,7 +214,7 @@ def run_one_round(dataset_name, encoding,
         for ans_idx, ans_set in enumerate(answers):
             _tmp_rules = []
             if not ans_set.is_optimal:
-                # print('Skipping non-optimal answer: {}'.format(ans_set.answer_id))
+                # time_print('Skipping non-optimal answer: {}'.format(ans_set.answer_id))
                 continue
             for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                 pat_idx = ans[-1][0]
@@ -234,7 +234,7 @@ def run_one_round(dataset_name, encoding,
                 _tmp_rules.append(pat_dict)
             out_quali['rules'].append((ans_idx, _tmp_rules))
     out_quali_end = timer()
-    print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
+    time_print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
                                                             round(out_quali_end - start)))
 
     if verbose:
@@ -273,4 +273,4 @@ if __name__ == '__main__':
         run_experiment(*cond_tuple)
     end_time = timer()
     e = end_time - start_time
-    print('Time elapsed(s): {}'.format(e))
+    time_print('Time elapsed(s): {}'.format(e))

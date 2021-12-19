@@ -13,7 +13,7 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from tempfile import NamedTemporaryFile
 from timeit import default_timer as timer
 
-from utils import load_data
+from utils import load_data, time_print
 
 
 class WekaJ48:
@@ -524,7 +524,7 @@ def run_experiment(dataset_name):
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=2020)
     for f_idx, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
-        print('fold={}'.format(f_idx+1))
+        time_print('fold={}'.format(f_idx+1))
         x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
@@ -536,7 +536,7 @@ def run_experiment(dataset_name):
         y_pred = j48.predict(x_valid)
         j48_end = timer()
         acc = accuracy_score(y_valid, y_pred)
-        print('j48 fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        time_print('j48 fold {} acc {}'.format(f_idx+1, round(acc, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -563,7 +563,7 @@ def run_experiment(dataset_name):
         y_pred = ripper.predict(x_valid)
         ripper_end = timer()
         acc = accuracy_score(y_valid, y_pred)
-        print('ripper fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        time_print('ripper fold {} acc {}'.format(f_idx+1, round(acc, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -589,7 +589,7 @@ def run_experiment(dataset_name):
         y_pred = part.predict(x_valid)
         part_end = timer()
         acc = accuracy_score(y_valid, y_pred)
-        print('part fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        time_print('part fold {} acc {}'.format(f_idx+1, round(acc, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -635,7 +635,7 @@ if __name__ == '__main__':
         'adult',
         'compas'
     ]:
-        print('='*40, data, '='*40)
+        time_print('='*40, data, '='*40)
         run_experiment(data)
 
     jvm.stop()
