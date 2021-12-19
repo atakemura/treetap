@@ -2,6 +2,7 @@ import json
 import pandas as pd
 
 from contextlib import contextmanager
+from datetime import datetime
 from timeit import default_timer as timer
 from sklearn.datasets import load_iris, load_breast_cancer, load_wine
 from pathlib import Path
@@ -12,6 +13,10 @@ def timer_exec(name):
     start = timer()
     yield
     print('{} time elapsed {} seconds'.format(name, round(timer() - start)))
+
+
+def time_print(msg):
+    print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '\t', msg)
 
 
 def load_data(dataset_name):

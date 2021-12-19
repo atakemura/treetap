@@ -1,7 +1,6 @@
 import weka.core.jvm as jvm
 
 from pathlib import Path
-from datetime import datetime
 
 from anchor_eval.wrapper import run_experiment as anchor_experiment
 from benchmark_eval.wrapper import run_experiment as baseline_experiment
@@ -10,10 +9,7 @@ from tree_local_explanation_lgb import run_experiment as local_lgb_experiment
 from tree_local_explanation_rf import run_experiment as local_rf_experiment
 from tree_to_clingo_experiment_lgb import run_experiment as global_lgb_experiment
 from tree_to_clingo_experiment_rf import run_experiment as global_rf_experiment
-
-
-def time_print(msg):
-    print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '\t', msg)
+from utils import time_print
 
 
 if __name__ == '__main__':
