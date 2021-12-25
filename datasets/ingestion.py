@@ -101,10 +101,10 @@ def autism_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'autism')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'autism.csv', header=True, index=False)
+    df.to_csv(out_dir / 'autism.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: autism written to {}'.format(out_dir / 'autism.csv'))
+    print('dataset: autism written to {}'.format(out_dir / 'autism.csv.gz'))
 
 
 def breast_parser():
@@ -130,10 +130,10 @@ def breast_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'breast')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'breast.csv', header=True, index=False)
+    df.to_csv(out_dir / 'breast.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: breast written to {}'.format(out_dir / 'breast.csv'))
+    print('dataset: breast written to {}'.format(out_dir / 'breast.csv.gz'))
 
 
 def cars_parser():
@@ -153,10 +153,10 @@ def cars_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'cars')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'cars.csv', header=True, index=False)
+    df.to_csv(out_dir / 'cars.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: cars written to {}'.format(out_dir / 'cars.csv'))
+    print('dataset: cars written to {}'.format(out_dir / 'cars.csv.gz'))
 
 
 def credit_australia_parser():
@@ -178,10 +178,10 @@ def credit_australia_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'credit_australia')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'credit_australia.csv', header=True, index=False)
+    df.to_csv(out_dir / 'credit_australia.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: credit written to {}'.format(out_dir / 'credit_australia.csv'))
+    print('dataset: credit written to {}'.format(out_dir / 'credit_australia.csv.gz'))
 
 
 def heart_parser():
@@ -207,10 +207,10 @@ def heart_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'heart')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'heart.csv', header=True, index=False)
+    df.to_csv(out_dir / 'heart.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: heart written to {}'.format(out_dir / 'heart.csv'))
+    print('dataset: heart written to {}'.format(out_dir / 'heart.csv.gz'))
 
 
 def ionosphere_parser():
@@ -230,10 +230,10 @@ def ionosphere_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'ionosphere')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'ionosphere.csv', header=True, index=False)
+    df.to_csv(out_dir / 'ionosphere.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: ionosphere written to {}'.format(out_dir / 'ionosphere.csv'))
+    print('dataset: ionosphere written to {}'.format(out_dir / 'ionosphere.csv.gz'))
 
 
 def kidney_parser():
@@ -264,10 +264,10 @@ def kidney_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'kidney')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'kidney.csv', header=True, index=False)
+    df.to_csv(out_dir / 'kidney.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: kidney written to {}'.format(out_dir / 'kidney.csv'))
+    print('dataset: kidney written to {}'.format(out_dir / 'kidney.csv.gz'))
 
 
 def chess_parser():
@@ -287,10 +287,10 @@ def chess_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'krvskp')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'krvskp.csv', header=True, index=False)
+    df.to_csv(out_dir / 'krvskp.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: krvskp written to {}'.format(out_dir / 'krvskp.csv'))
+    print('dataset: krvskp written to {}'.format(out_dir / 'krvskp.csv.gz'))
 
 
 def voting_parser():
@@ -325,10 +325,10 @@ def voting_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'voting')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'voting.csv', header=True, index=False)
+    df.to_csv(out_dir / 'voting.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: voting written to {}'.format(out_dir / 'voting.csv'))
+    print('dataset: voting written to {}'.format(out_dir / 'voting.csv.gz'))
 
 
 def airline_parser():
@@ -347,10 +347,10 @@ def airline_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'airline')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'airline.csv', header=True, index=False)
+    df.to_csv(out_dir / 'airline.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: airline written to {}'.format(out_dir / 'airline.csv'))
+    print('dataset: airline written to {}'.format(out_dir / 'airline.csv.gz'))
 
 
 def census_parser():
@@ -382,10 +382,10 @@ def census_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'census')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'census.csv', header=True, index=False)
+    df.to_csv(out_dir / 'census.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: census written to {}'.format(out_dir / 'census.csv'))
+    print('dataset: census written to {}'.format(out_dir / 'census.csv.gz'))
 
 
 def kdd99_parser():
@@ -472,10 +472,10 @@ def kdd99_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'kdd99')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'kdd99.csv', header=True, index=False)
+    df.to_csv(out_dir / 'kdd99.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: kdd99 written to {}'.format(out_dir / 'kdd99.csv'))
+    print('dataset: kdd99 written to {}'.format(out_dir / 'kdd99.csv.gz'))
 
 
 def eeg_parser():
@@ -498,10 +498,10 @@ def eeg_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'eeg')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'eeg.csv', header=True, index=False)
+    df.to_csv(out_dir / 'eeg.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: eeg written to {}'.format(out_dir / 'eeg.csv'))
+    print('dataset: eeg written to {}'.format(out_dir / 'eeg.csv.gz'))
 
 
 def credit_taiwan_parser():
@@ -521,10 +521,10 @@ def credit_taiwan_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'credit_taiwan')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'credit_taiwan.csv', header=True, index=False)
+    df.to_csv(out_dir / 'credit_taiwan.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: credit_taiwan written to {}'.format(out_dir / 'credit_taiwan.csv'))
+    print('dataset: credit_taiwan written to {}'.format(out_dir / 'credit_taiwan.csv.gz'))
 
 
 def adult_parser():
@@ -560,10 +560,10 @@ def adult_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'adult')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'adult.csv', header=True, index=False)
+    df.to_csv(out_dir / 'adult.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: adult written to {}'.format(out_dir / 'adult.csv'))
+    print('dataset: adult written to {}'.format(out_dir / 'adult.csv.gz'))
 
 
 def compas_parser():
@@ -615,10 +615,10 @@ def compas_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'compas')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'compas.csv', header=True, index=False)
+    df.to_csv(out_dir / 'compas.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: compas written to {}'.format(out_dir / 'compas.csv'))
+    print('dataset: compas written to {}'.format(out_dir / 'compas.csv.gz'))
 
 
 def credit_german_parser():
@@ -651,10 +651,10 @@ def credit_german_parser():
     check_dtypes(schema, df)
     out_dir = Path(Path(__file__).parent / 'datasets' / 'credit_german')
     out_dir.mkdir(exist_ok=True)
-    df.to_csv(out_dir / 'credit_german.csv', header=True, index=False)
+    df.to_csv(out_dir / 'credit_german.csv.gz', header=True, index=False, compression='gzip')
     with open(out_dir / 'schema.json', 'w') as out_file:
         json.dump(schema, out_file, indent=4)
-    print('dataset: credit_german written to {}'.format(out_dir / 'credit_german.csv'))
+    print('dataset: credit_german written to {}'.format(out_dir / 'credit_german.csv.gz'))
 
 
 if __name__ == '__main__':

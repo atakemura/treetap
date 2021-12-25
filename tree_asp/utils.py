@@ -49,7 +49,7 @@ def load_data(dataset_name):
     elif dataset_name in datasets:
         dataset_dir = Path('../datasets/datasets/') / dataset_name
 
-        raw = pd.read_csv(Path(dataset_dir / dataset_name).with_suffix('.csv'))
+        raw = pd.read_csv(Path(dataset_dir / dataset_name).with_suffix('.csv.gz'))
         with open(dataset_dir / 'schema.json', 'r') as infile:
             schema = json.load(infile)
         for c in schema['categorical_columns']:
