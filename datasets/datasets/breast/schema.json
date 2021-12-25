@@ -1,0 +1,17 @@
+{
+    "id_col": "sample_code_number",
+    "categorical_columns": [
+        "clump_thickness",
+        "cell_size_uniformity",
+        "cell_shape_uniformity",
+        "marginal_adhesion",
+        "single_epithelial_cell_size",
+        "bare_nuclei",
+        "bland_chromatin",
+        "normal_nucleoli",
+        "mitoses"
+    ],
+    "numerical_columns": [],
+    "label_column": "label",
+    "notes": "labels=2=0/4=1 (2=benign, 4=malignant)Missing data: bare_nuclei (16 instances), left as is, i.e. '?'"
+}

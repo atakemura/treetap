@@ -1,0 +1,23 @@
+{
+    "id_col": "",
+    "categorical_columns": [
+        "a1",
+        "a4",
+        "a5",
+        "a6",
+        "a8",
+        "a9",
+        "a11",
+        "a12"
+    ],
+    "numerical_columns": [
+        "a2",
+        "a3",
+        "a7",
+        "a10",
+        "a13",
+        "a14"
+    ],
+    "label_column": "label",
+    "notes": "label column contains 0 and 1, as opposed to 1/2 or +/- in the documentation.The value counts are 0: 383, 1: 307, so we assume 1 to be + and 0 to be -, accordingto the value counts given in the documentation."
+}

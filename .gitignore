@@ -140,3 +140,8 @@ dmypy.json
 # vscode
 .vscode
 .devcontainer
+
+/datasets/ingestion
+/datasets/datasets/airline
+/datasets/datasets/kdd99
+/datasets/datasets/eeg

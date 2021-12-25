@@ -1,0 +1,22 @@
+{
+    "id_col": "",
+    "categorical_columns": [
+        "sex",
+        "chest_pain_type",
+        "fasting_blood_sugar",
+        "resting_electrocardiographic_results",
+        "exercise_induced_angina",
+        "slope_peak",
+        "number_of_major_vessels",
+        "thal"
+    ],
+    "numerical_columns": [
+        "age",
+        "resting_blood_pressure",
+        "serum_cholestoral",
+        "maximum_heart_rate",
+        "oldpeak"
+    ],
+    "label_column": "label",
+    "notes": "labels: 1=absence=0 / 2=presence=1"
+}

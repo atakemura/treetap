@@ -1,0 +1,29 @@
+{
+    "id_col": "",
+    "categorical_columns": [
+        "a1_score",
+        "a2_score",
+        "a3_score",
+        "a4_score",
+        "a5_score",
+        "a6_score",
+        "a7_score",
+        "a8_score",
+        "a9_score",
+        "a10_score",
+        "gender",
+        "ethnicity",
+        "jaundice",
+        "autism",
+        "country_of_res",
+        "used_app_before",
+        "age_desc",
+        "relation"
+    ],
+    "numerical_columns": [
+        "age",
+        "result"
+    ],
+    "label_column": "label",
+    "notes": "labels=YES=1/NO=0. Deleted quotation characters from @attributes, otherwise scipy.loadarff throws an error.Missing data: age -> mode (1 instance), ethnicity and country_of_res (95 instances each)  -> left as is i.e. '?'"
+}

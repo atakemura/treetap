@@ -1,0 +1,14 @@
+{
+    "id_col": "",
+    "categorical_columns": [
+        "buying",
+        "maint",
+        "doors",
+        "persons",
+        "lug_boot",
+        "safety"
+    ],
+    "numerical_columns": [],
+    "label_column": "label",
+    "notes": "labels= unacc=0, acc, good, vgood=1"
+}

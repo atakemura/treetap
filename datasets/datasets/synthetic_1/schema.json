@@ -1,0 +1,11 @@
+{
+    "id_col": "",
+    "categorical_columns": [
+    ],
+    "numerical_columns": [
+        "x1",
+        "x2"
+    ],
+    "label_column": "label",
+    "notes": "2000 samples, generated according to defragTrees paper by Hara & Hayashi AISTATS2018"
+}

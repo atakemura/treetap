@@ -1,0 +1,33 @@
+{
+    "id_col": "",
+    "categorical_columns": [
+        "sg",
+        "al",
+        "su",
+        "rbc",
+        "pc",
+        "pcc",
+        "ba",
+        "htn",
+        "dm",
+        "cad",
+        "appet",
+        "pe",
+        "ane"
+    ],
+    "numerical_columns": [
+        "age",
+        "bp",
+        "bgr",
+        "bu",
+        "sc",
+        "sod",
+        "pot",
+        "hemo",
+        "pcv",
+        "wbcc",
+        "rbcc"
+    ],
+    "label_column": "label",
+    "notes": "labels= ckd=1/notckd=0. Error at line ~300, there is a double comma making this line 26 elements andcorrupting the csv format. Deleted this double comma.Missing data: numeric columns -> replaced with the mode of the column.categorical columns -> left as is i.e. '?'"
+}
