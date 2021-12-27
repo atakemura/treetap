@@ -38,10 +38,12 @@ def run_one_round(dataset_name,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
     experiment_tag = 'lgb_{}_{}'.format(dataset_name, fold)
     exp_dir = './tmp/journal/local'
+
     # if model exists, skip training
     model_path = os.path.join(exp_dir, experiment_tag+'_lgbmodel.bst')
     param_path = os.path.join(exp_dir, experiment_tag+'_lgbmodel_params.pkl')
     extractor_path = os.path.join(exp_dir, experiment_tag+'_extractor.pkl')
+
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
 
@@ -132,83 +134,80 @@ def run_one_round(dataset_name,
         # outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
         outfile.write('class(1).')
 
-    # asprin_pareto_1   = './asp_encoding/asprin_pareto_1.lp'
-    # asprin_pareto_2   = './asp_encoding/asprin_pareto_2.lp'
-    # asprin_lexico     = './asp_encoding/asprin_lexico.lp'
-    # asprin_pareto     = './asp_encoding/asprin_pareto.lp'
-    # asprin_skyline    = './asp_encoding/skyline.lp'
-    # asprin_skyline    = './asp_encoding/asprin_skyline_new.lp'
-    # asprin_maximal    = './asp_encoding/maximal.lp'
-    # asprin_closed     = './asp_encoding/closed.lp'
+    # local explanation using rules (not through clingo because it's not supposed to be a global approximation)
+    time_print('local explanation start')
 
-    clingo_test         = './asp_encoding/clingo_moo_ruleset.lp'
-    clingo_acc          = './asp_encoding/clingo_moo_ruleset_acc.lp'
-    clingo_prec         = './asp_encoding/clingo_moo_ruleset_prec.lp'
-    clingo_f1size       = './asp_encoding/clingo_moo_ruleset_f1size.lp'
-    clingo_acc_sup      = './asp_encoding/clingo_moo_ruleset_acc_support.lp'
-    clingo_f1_sup       = './asp_encoding/clingo_moo_ruleset_f1_support.lp'
-    clingo_dom_prec     = './asp_encoding/clingo_moo_ruleset_dom_3.lp'
-    clingo_dom_rec      = './asp_encoding/clingo_moo_ruleset_dom_4.lp'
-    clingo_dom_maxacc   = './asp_encoding/clingo_moo_ruleset_dom_7.lp'
+    local_lgb_extractor = LGBMLocalRuleExtractor()
+    local_lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
 
-    # clingo_test       = './asp_encoding/maximal_noclass.lp'
-    # general_rule_test = './asp_encoding/rule_selection.lp'
-    #
-    # asprin_enc = {'skyline': asprin_skyline, 'maximal': asprin_maximal,
-    #               'closed': asprin_closed, 'general_rule': general_rule_test}
-    # asprin_preference = {'pareto_1': asprin_pareto_1, 'pareto_2': asprin_pareto_2,
-    #                      'lexico': asprin_lexico, 'pareto_test': asprin_pareto}
+    sample_idx = x_valid.sample(n_local_instances, replace=True).index
+    sampled_x_valid, sampled_y_valid = x_valid.loc[sample_idx], y_valid.loc[sample_idx]
 
-    clingo_start = timer()
-    time_print('clingo start')
-    try:
-        # o = subprocess.run(['asprin', asprin_preference[asprin_pref], asprin_enc[encoding],
-        #                     tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=16'
-        #                     ], capture_output=True, timeout=3600)
-        o = subprocess.run(['clingo', clingo_dom_maxacc, #asprin_pareto_1,
-                            tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8,split'
-                            ], capture_output=True, timeout=600)
-        clingo_completed = True
-    except subprocess.TimeoutExpired:
-        o = None
-        clingo_completed = False
-    clingo_end = timer()
-    time_print('clingo completed {} seconds | {} from start'.format(round(clingo_end - clingo_start),
-                                                               round(clingo_end - start)))
+    encoding_dict = {'acc_cov':  './asp_encoding/local_accuracy_coverage.lp',
+                     'prec_cov': './asp_encoding/local_precision_coverage.lp',
+                     'prec_rec': './asp_encoding/local_precision_recall.lp'}
 
-    if clingo_completed:
-        answers, clasp_info = generate_answers(o.stdout.decode())
-    else:
-        answers, clasp_info = None, None
-    end = timer()
+    for enc_idx, (enc_k, enc_v) in enumerate(encoding_dict.items()):
+        le_start = timer()
+        time_print('local explanation enc {} {}/{}'.format(enc_k, enc_idx+1, len(encoding_dict)))
+        le_score_store = {}
 
-    if clingo_completed and clasp_info is not None:
-        py_rule_start = timer()
-        time_print('py rule evaluation start')
-        scores = []
-        for ans_idx, ans_set in enumerate(answers):
-            if not ans_set.is_optimal:
-                continue
-            rules = []
-            for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
-                pat_idx = ans[-1][0]
-                pat = lgb_extractor.rules_[pat_idx]  # type: Rule
-                rules.append(pat)
-            # break
-            rule_classifier = RuleClassifier(rules, default_class=0)
-            rule_classifier.fit(x_train, y_train)
-            rule_pred = rule_classifier.predict(x_valid)
-            rule_pred_metrics = {'accuracy': accuracy_score(y_valid, rule_pred),
-                                 'precision': precision_score(y_valid, rule_pred, average=metric_averaging),
-                                 'recall': recall_score(y_valid, rule_pred, average=metric_averaging),
-                                 'f1': f1_score(y_valid, rule_pred, average=metric_averaging),
-                                 'auc': roc_auc_score(y_valid, rule_pred)}
-            scores.append((ans_idx, rule_pred_metrics))
-        py_rule_end = timer()
-        time_print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
-                                                                               round(py_rule_end - start)))
+        for s_idx, v_idx in enumerate(sample_idx):
+            time_print('local explanation {}/{}'.format(s_idx+1, n_local_instances))
+            # given a single data point, find paths and rules that fire, leading to the conclusion
+            local_asp_prestr = local_lgb_extractor.transform(x_valid.loc[[v_idx]], y_valid.loc[v_idx], model=model)
+            if len(local_asp_prestr) > 1:
+                assert False  # safety, we're explaining only 1 sample at a time, for now
 
-        out_dict = {
+            local_tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out_local.txt'.format(experiment_tag))
+            with open(local_tmp_pattern_file, 'w', encoding='utf-8') as outfile:
+                outfile.write(local_asp_prestr[0])
+
+            try:
+                o = subprocess.run(['clingo', enc_v,
+                                    local_tmp_pattern_file, '0',
+                                    ], capture_output=True, timeout=600)
+                clingo_completed = True
+            except subprocess.TimeoutExpired:
+                o = None
+                clingo_completed = False
+
+            if clingo_completed:
+                answers, clasp_info = generate_answers(o.stdout.decode())
+            else:
+                answers, clasp_info = None, None
+
+            scores = []
+            if clingo_completed and clasp_info is not None:
+                for ans_idx, ans_set in enumerate(answers):
+                    if not ans_set.is_optimal:
+                        continue
+                    rules = []
+                    for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
+                        pat_idx = ans[-1][0]
+                        pat = local_lgb_extractor.rules_[pat_idx]  # type: Rule
+                        rules.append(pat)
+                    # break
+                    rule_classifier = RuleClassifier(rules, default_class=0)
+                    rule_classifier.fit(x_train, y_train)
+
+                    rule_pred_idx = rule_classifier.predict_index(sampled_x_valid)
+
+                    # coverage
+                    cov = rule_pred_idx.shape[0] / float(sample_idx.shape[0])
+                    # precision
+                    prc = np.mean((model.predict(sampled_x_valid.loc[rule_pred_idx]) > 0.5).astype(int) ==
+                                  (model.predict(x_valid.loc[[v_idx]]) > 0.5).astype(int))
+
+                    rule_pred_metrics = {'local_coverage': cov,
+                                         'local_precision': prc}
+                    scores.append((ans_idx, rule_pred_metrics))
+            le_score_store[s_idx] = scores
+
+        le_end = timer()
+        time_print('local explanation completed {} seconds | {} from start'.format(round(le_end - le_start),
+                                                                                   round(le_end - start)))
+        le_out_dict = {
             # experiment
             'dataset': dataset_name,
             'num_class': num_classes,
@@ -228,188 +227,19 @@ def run_one_round(dataset_name,
             'lgb_n_patterns': len(lgb_extractor.rules_),
             'hyperparams': hyperparams,
             # timer
-            'py_total_time': end - start,
+            'py_total_time': le_end - start,
             'py_lgb_time': lgb_end - lgb_start,
             'py_ext_time': ext_end - ext_start,
-            'py_clingo_time': clingo_end - clingo_start,
-            'py_rule_time': py_rule_end - py_rule_start,
+            'py_local_explanation_time': le_end - le_start,
             # metrics
             'fold': fold,
-            'vanilla_metrics': vanilla_metrics,
-            # 'rule_metrics': rule_pred_metrics,
-            'rule_metrics': scores,
+            'local_encoding': enc_k,
+            'local_encoding_file': enc_v,
+            'local_explanation_scores': le_score_store
         }
-    else:
-        out_dict = {
-            # experiment
-            'dataset': dataset_name,
-            'num_class': num_classes,
-            'best_iteration': model.best_iteration,
-            'n_estimators': model.num_trees(),
-            'max_depth': hyperparams['max_depth'],
-            # 'encoding': encoding,
-            'clingo_completed': clingo_completed,
-            # # clasp
-            # 'models': int(clasp_info.stats['Models']),
-            # 'optimum': True if clasp_info.stats['Optimum'] == 'yes' else False,
-            # 'optimal': int(clasp_info.stats['Optimal']),
-            # 'clasp_time': clasp_info.stats['Time'],
-            # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
-            # lgb related
-            'lgb_n_nodes': len(lgb_extractor.conditions_),
-            'lgb_n_patterns': len(lgb_extractor.rules_),
-            'hyperparams': hyperparams,
-            # timer
-            'py_total_time': end - start,
-            'py_lgb_time': lgb_end - lgb_start,
-            'py_ext_time': ext_end - ext_start,
-            'py_clingo_time': clingo_end - clingo_start,
-            'py_rule_time': 0,
-            # metrics
-            'fold': fold,
-            'vanilla_metrics': vanilla_metrics,
-            # 'rule_metrics': rule_pred_metrics,
-        }
-    with open(log_json, 'a', encoding='utf-8') as out_log_json:
-        out_log_json.write(json.dumps(out_dict)+'\n')
 
-    # this is for qualitative answer pattern only
-    verbose = True
-    out_quali_start = timer()
-    out_quali = deepcopy(out_dict)
-    out_quali['rules'] = []
-    if clingo_completed:
-        for ans_idx, ans_set in enumerate(answers):
-            _tmp_rules = []
-            if not ans_set.is_optimal:
-                # time_print('Skipping non-optimal answer: {}'.format(ans_set.answer_id))
-                continue
-            for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
-                pat_idx = ans[-1][0]
-                pat = lgb_extractor.rules_[pat_idx]  # type: Rule
-                pat_dict = {
-                    'rule_idx': pat.idx,
-                    'items': [x.condition_str for x in pat.items],
-                    'rule_str': 'class {} IF {}'.format(pat.predict_class, pat.rule_str),
-                    'predict_class': int(pat.predict_class),
-                    'error_rate': int(pat.error_rate),
-                    'accuracy': int(pat.accuracy),
-                    'precision': int(pat.precision),
-                    'f1_score': int(pat.f1_score),
-                    'size': int(pat.size),
-                    'support': int(pat.support),
-                }
-                _tmp_rules.append(pat_dict)
-            out_quali['rules'].append((ans_idx, _tmp_rules))
-    out_quali_end = timer()
-    time_print('out_quali end {} seconds | {} from start'.format(round(out_quali_end - out_quali_start),
-                                                            round(out_quali_end - start)))
-
-    if verbose:
-        with open(log_json_quali, 'a', encoding='utf-8') as out_log_quali:
-            out_log_quali.write(json.dumps(out_quali)+'\n')
-
-    # local explanation using rules (not through clingo because it's not supposed to be a global approximation)
-    time_print('local explanation start')
-    le_start = timer()
-
-    local_lgb_extractor = LGBMLocalRuleExtractor()
-    local_lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
-
-    sample_idx = x_valid.sample(n_local_instances, replace=True).index
-    sampled_x_valid, sampled_y_valid = x_valid.loc[sample_idx], y_valid.loc[sample_idx]
-
-    le_score_store = {}
-
-    for s_idx, v_idx in enumerate(sample_idx):
-        time_print('local explanation {}/{}'.format(s_idx+1, n_local_instances))
-        # given a single data point, find paths and rules that fire, leading to the conclusion
-        local_asp_prestr = local_lgb_extractor.transform(x_valid.loc[[v_idx]], y_valid.loc[v_idx], model=model)
-        if len(local_asp_prestr) > 1:
-            assert False  # safety, we're explaining only 1 sample at a time, for now
-
-        local_tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out_local.txt'.format(experiment_tag))
-        with open(local_tmp_pattern_file, 'w', encoding='utf-8') as outfile:
-            outfile.write(local_asp_prestr[0])
-
-        try:
-            o = subprocess.run(['clingo', './asp_encoding/clingo_local_explanation.lp',
-                                local_tmp_pattern_file, '0',
-                                ], capture_output=True, timeout=600)
-            clingo_completed = True
-        except subprocess.TimeoutExpired:
-            o = None
-            clingo_completed = False
-
-        if clingo_completed:
-            answers, clasp_info = generate_answers(o.stdout.decode())
-        else:
-            answers, clasp_info = None, None
-
-        # log_json = os.path.join(exp_dir, 'output.json')
-        # log_json_quali = os.path.join(exp_dir, 'output_quali.json')
-
-        scores = []
-        if clingo_completed and clasp_info is not None:
-            for ans_idx, ans_set in enumerate(answers):
-                if not ans_set.is_optimal:
-                    continue
-                rules = []
-                for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
-                    pat_idx = ans[-1][0]
-                    pat = local_lgb_extractor.rules_[pat_idx]  # type: Rule
-                    rules.append(pat)
-                # break
-                rule_classifier = RuleClassifier(rules, default_class=0)
-                rule_classifier.fit(x_train, y_train)
-
-                rule_pred_idx = rule_classifier.predict_index(sampled_x_valid)
-
-                # coverage
-                cov = rule_pred_idx.shape[0] / float(sample_idx.shape[0])
-                # precision
-                prc = np.mean((model.predict(sampled_x_valid.loc[rule_pred_idx]) > 0.5).astype(int) ==
-                              (model.predict(x_valid.loc[[v_idx]]) > 0.5).astype(int))
-
-                rule_pred_metrics = {'local_coverage': cov,
-                                     'local_precision': prc}
-                scores.append((ans_idx, rule_pred_metrics))
-        le_score_store[s_idx] = scores
-
-    le_end = timer()
-    time_print('local explanation completed {} seconds | {} from start'.format(round(le_end - le_start),
-                                                                          round(le_end - start)))
-    le_out_dict = {
-        # experiment
-        'dataset': dataset_name,
-        'num_class': num_classes,
-        'best_iteration': model.best_iteration,
-        'n_estimators': model.num_trees(),
-        'max_depth': hyperparams['max_depth'],
-        # 'encoding': encoding,
-        'clingo_completed': clingo_completed,
-        # clasp
-        'models': clasp_info.stats['Models'],
-        'optimum': True if clasp_info.stats['Optimum'] == 'yes' else False,
-        # 'optimal': int(clasp_info.stats['Optimal']),
-        'clasp_time': clasp_info.stats['Time'],
-        'clasp_cpu_time': clasp_info.stats['CPU Time'],
-        # rf related
-        'lgb_n_nodes': len(lgb_extractor.conditions_),
-        'lgb_n_patterns': len(lgb_extractor.rules_),
-        'hyperparams': hyperparams,
-        # timer
-        'py_total_time': end - start,
-        'py_lgb_time': lgb_end - lgb_start,
-        'py_ext_time': ext_end - ext_start,
-        'py_local_explanation_time': le_end - le_start,
-        # metrics
-        'fold': fold,
-        'local_explanation_scores': le_score_store
-    }
-
-    with open(le_log_json, 'a', encoding='utf-8') as out_log_json:
-        out_log_json.write(json.dumps(le_out_dict)+'\n')
+        with open(le_log_json, 'a', encoding='utf-8') as out_log_json:
+            out_log_json.write(json.dumps(le_out_dict)+'\n')
 
     time_print('completed {} from start'.format(round(timer() - start)))
 

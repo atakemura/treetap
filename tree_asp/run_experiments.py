@@ -7,8 +7,8 @@ from benchmark_eval.wrapper import run_experiment as baseline_experiment
 from weka_eval.wrapper import run_experiment as weka_experiment
 from tree_local_explanation_lgb import run_experiment as local_lgb_experiment
 from tree_local_explanation_rf import run_experiment as local_rf_experiment
-from tree_to_clingo_experiment_lgb import run_experiment as global_lgb_experiment
-from tree_to_clingo_experiment_rf import run_experiment as global_rf_experiment
+from tree_global_explanation_lgb import run_experiment as global_lgb_experiment
+from tree_global_explanation_rf import run_experiment as global_rf_experiment
 from utils import time_print
 
 
@@ -23,12 +23,11 @@ if __name__ == '__main__':
         'kidney',
         'krvskp',
         'voting',
-        'census',
-        'synthetic_1',
         'credit_taiwan',
         'credit_german',
         'adult',
-        'compas'
+        'compas',
+        'census',
     ]
 
     try:
@@ -46,8 +45,8 @@ if __name__ == '__main__':
             anchor_experiment(data)
 
             time_print('global')
-            global_rf_experiment(data, 'test')
-            global_lgb_experiment(data, 'test')
+            global_rf_experiment(data)
+            global_lgb_experiment(data)
 
             time_print('local')
             local_rf_experiment(data)
