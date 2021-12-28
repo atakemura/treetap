@@ -41,9 +41,8 @@ def run_one_round(dataset_name,
     # if model exists, skip training
     model_path = os.path.join(exp_dir, experiment_tag+'_lgbmodel.bst')
     param_path = os.path.join(exp_dir, experiment_tag+'_lgbmodel_params.pkl')
-    extractor_path = os.path.join(exp_dir, experiment_tag+'_extractor.pkl')
 
-    tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
+    local_tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out_local.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
 
     le_log_json = os.path.join(exp_dir, 'local_explanation.json')
@@ -105,28 +104,6 @@ def run_one_round(dataset_name,
                        'f1':        f1_score(y_valid, lgb_vanilla_pred, average=metric_averaging),
                        'auc':       roc_auc_score(y_valid, lgb_vanilla_pred)}
 
-    time_print('rule extraction start')
-    ext_start = timer()
-    # if already fit extractor exists, skip
-
-    if os.path.exists(extractor_path):
-        with open(extractor_path, 'rb') as ext_pkl:
-            lgb_extractor = pickle.load(ext_pkl)
-        res_str = lgb_extractor.transform(x_train, y_train)
-    else:
-        lgb_extractor = LGBMGlobalRuleExtractor()
-        lgb_extractor.fit(x_train, y_train, model=model, feature_names=feature_names)
-        res_str = lgb_extractor.transform(x_train, y_train)
-
-        with open(extractor_path, 'wb') as ext_out:
-            pickle.dump(lgb_extractor, ext_out, protocol=pickle.HIGHEST_PROTOCOL)
-    ext_end = timer()
-    time_print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
-                                                                        round(ext_end - start)))
-
-    with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
-        outfile.write(res_str)
-
     with open(tmp_class_file, 'w', encoding='utf-8') as outfile:
         # outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
         outfile.write('class(1).')
@@ -155,7 +132,6 @@ def run_one_round(dataset_name,
             if len(local_asp_prestr) > 1:
                 assert False  # safety, we're explaining only 1 sample at a time, for now
 
-            local_tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out_local.txt'.format(experiment_tag))
             with open(local_tmp_pattern_file, 'w', encoding='utf-8') as outfile:
                 outfile.write(local_asp_prestr[0])
 
@@ -221,13 +197,13 @@ def run_one_round(dataset_name,
             'clasp_time': clasp_info.stats['Time'],
             'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # rf related
-            'lgb_n_nodes': len(lgb_extractor.conditions_),
-            'lgb_n_patterns': len(lgb_extractor.rules_),
+            # 'lgb_n_nodes': len(lgb_extractor.conditions_),
+            # 'lgb_n_patterns': len(lgb_extractor.rules_),
             'hyperparams': hyperparams,
             # timer
             'py_total_time': le_end - start,
             'py_lgb_time': lgb_end - lgb_start,
-            'py_ext_time': ext_end - ext_start,
+            # 'py_ext_time': ext_end - ext_start,
             'py_local_explanation_time': le_end - le_start,
             # metrics
             'fold': fold,

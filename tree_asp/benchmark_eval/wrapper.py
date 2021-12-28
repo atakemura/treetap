@@ -42,7 +42,7 @@ def run_experiment(dataset_name):
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
         dt_start = timer()
-        time_print('rf optuna start...')
+        time_print('dt optuna start...')
         if cat_X is not None:
             dt_best_params = optuna_decision_tree(cat_X.iloc[train_idx], y_train)
             dt_optuna_end = timer()
@@ -58,11 +58,11 @@ def run_experiment(dataset_name):
         dt_end = timer()
         acc = accuracy_score(y_valid, y_pred)
         time_print('dt fold {} acc {}'.format(f_idx+1, round(acc, 2)))
-        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+        vanilla_metrics = {'accuracy':  accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
-                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
-                           'auc': roc_auc_score(y_valid, y_pred)}
+                           'recall':    recall_score(y_valid, y_pred, average=metric_averaging),
+                           'f1':        f1_score(y_valid, y_pred, average=metric_averaging),
+                           'auc':       roc_auc_score(y_valid, y_pred)}
         dt_dict = {
             'dataset': dataset_name,
             'fold': f_idx,
@@ -91,11 +91,11 @@ def run_experiment(dataset_name):
         rf_end = timer()
         acc = accuracy_score(y_valid, y_pred)
         time_print('rf fold {} acc {}'.format(f_idx+1, round(acc, 2)))
-        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+        vanilla_metrics = {'accuracy':  accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
-                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
-                           'auc': roc_auc_score(y_valid, y_pred)}
+                           'recall':    recall_score(y_valid, y_pred, average=metric_averaging),
+                           'f1':        f1_score(y_valid, y_pred, average=metric_averaging),
+                           'auc':       roc_auc_score(y_valid, y_pred)}
         rf_dict = {
             'dataset': dataset_name,
             'fold': f_idx,
@@ -135,11 +135,11 @@ def run_experiment(dataset_name):
         lgb_end = timer()
         acc = accuracy_score(y_valid, y_pred)
         time_print('lgb fold {} acc {}'.format(f_idx+1, round(acc, 2)))
-        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+        vanilla_metrics = {'accuracy':  accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
-                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
-                           'auc': roc_auc_score(y_valid, y_pred)}
+                           'recall':    recall_score(y_valid, y_pred, average=metric_averaging),
+                           'f1':        f1_score(y_valid, y_pred, average=metric_averaging),
+                           'auc':       roc_auc_score(y_valid, y_pred)}
         lgb_dict = {
             'dataset': dataset_name,
             'fold': f_idx,
@@ -156,7 +156,7 @@ def run_experiment(dataset_name):
         if cat_X is not None:
             rfit_best_params = optuna_rulefit(cat_X.iloc[train_idx], y_train, rf_params=rf_best_params)
             rfit_optuna_end = timer()
-            rf = RandomForestClassifier(n_jobs=-1, random_state=SEED, **rf_best_params)
+            rf = RandomForestClassifier(n_jobs=1, random_state=SEED, **rf_best_params)
             rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=-1, random_state=SEED)
             rfit.fit(cat_X.iloc[train_idx], y_train, feature_names=cat_X.columns)
             try:
@@ -166,7 +166,7 @@ def run_experiment(dataset_name):
         else:
             rfit_best_params = optuna_rulefit(x_train, y_train, rf_params=rf_best_params)
             rfit_optuna_end = timer()
-            rf = RandomForestClassifier(n_jobs=-1, random_state=SEED, **rf_best_params)
+            rf = RandomForestClassifier(n_jobs=1, random_state=SEED, **rf_best_params)
             rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=-1, random_state=SEED)
             rfit.fit(x_train, y_train, feature_names=x_train.columns)
             try:
@@ -190,11 +190,11 @@ def run_experiment(dataset_name):
         else:  # success
             acc = accuracy_score(y_valid, y_pred)
             time_print('rfit fold {} acc {}'.format(f_idx+1, round(acc, 2)))
-            vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+            vanilla_metrics = {'accuracy':  accuracy_score(y_valid, y_pred),
                                'precision': precision_score(y_valid, y_pred, average=metric_averaging),
-                               'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                               'f1': f1_score(y_valid, y_pred, average=metric_averaging),
-                               'auc': roc_auc_score(y_valid, y_pred)}
+                               'recall':    recall_score(y_valid, y_pred, average=metric_averaging),
+                               'f1':        f1_score(y_valid, y_pred, average=metric_averaging),
+                               'auc':       roc_auc_score(y_valid, y_pred)}
             rules = rfit.get_rules()
             rules = rules[rules.coef != 0].sort_values('support', ascending=False)
             n_rules = rules.shape[0]
@@ -203,7 +203,6 @@ def run_experiment(dataset_name):
                 'dataset': dataset_name,
                 'fold': f_idx,
                 'model': 'RuleFit',
-                # 'rfit.model': str(rfit.model),
                 'rfit.best_20_rules_support': top_rules.to_json(orient='records'),
                 'rfit.n_rules': n_rules,
                 'rfit.best_params': rfit_best_params,
