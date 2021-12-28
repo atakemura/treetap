@@ -140,7 +140,7 @@ def run_one_round(dataset_name,
 
             out_dict = {
                 # experiment
-                'model': 'rf',
+                'model': 'RandomForest',
                 'experiment': experiment_tag,
                 'dataset': dataset_name,
                 'n_estimators': best_params['n_estimators'],
@@ -172,7 +172,7 @@ def run_one_round(dataset_name,
         else:
             out_dict = {
                 # experiment
-                'model': 'rf',
+                'model': 'RandomForest',
                 'experiment': experiment_tag,
                 'dataset': dataset_name,
                 'n_estimators': best_params['n_estimators'],

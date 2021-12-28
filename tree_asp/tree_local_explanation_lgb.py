@@ -181,7 +181,7 @@ def run_one_round(dataset_name,
                                                                                    round(le_end - start)))
         le_out_dict = {
             # experiment
-            'model': 'lgb',
+            'model': 'LightGBM',
             'experiment': experiment_tag,
             'dataset': dataset_name,
             'num_class': num_classes,

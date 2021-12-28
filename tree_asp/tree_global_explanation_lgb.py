@@ -180,7 +180,7 @@ def run_one_round(dataset_name,
 
             out_dict = {
                 # experiment
-                'model': 'lgb',
+                'model': 'LightGBM',
                 'experiment': experiment_tag,
                 'dataset': dataset_name,
                 'num_class': num_classes,
@@ -214,7 +214,7 @@ def run_one_round(dataset_name,
         else:
             out_dict = {
                 # experiment
-                'model': 'lgb',
+                'model': 'LightGBM',
                 'experiment': experiment_tag,
                 'dataset': dataset_name,
                 'num_class': num_classes,

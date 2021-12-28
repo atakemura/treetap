@@ -165,7 +165,7 @@ def run_one_round(dataset_name,
                                                                                    round(le_end - start)))
         le_out_dict = {
             # experiment
-            'model': 'dt',
+            'model': 'DecisionTree',
             'experiment': experiment_tag,
             'dataset': dataset_name,
             'n_estimators': hyperparams['n_estimators'],
