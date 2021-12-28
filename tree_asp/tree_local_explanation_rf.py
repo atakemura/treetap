@@ -114,7 +114,6 @@ def run_one_round(dataset_name,
     with open(tmp_class_file, 'w', encoding='utf-8') as outfile:
         outfile.write('class(1).'.format(int(y_train.nunique() - 1)))
 
-    # local explanation using rules (not through clingo because it's not supposed to be a global approximation)
     time_print('local explanation start')
 
     local_rf_extractor = RFLocalRuleExtractor()

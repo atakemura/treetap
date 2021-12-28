@@ -131,7 +131,6 @@ def run_one_round(dataset_name,
         # outfile.write('class(0..{}).'.format(int(y_train.nunique() - 1)))
         outfile.write('class(1).')
 
-    # local explanation using rules (not through clingo because it's not supposed to be a global approximation)
     time_print('local explanation start')
 
     local_lgb_extractor = LGBMLocalRuleExtractor()
