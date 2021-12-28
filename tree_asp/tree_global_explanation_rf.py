@@ -22,6 +22,7 @@ from utils import load_data, time_print
 
 
 SEED = 2020
+NUM_CPU = cpu_count(logical=False) - 1
 
 
 def run_experiment(dataset_name):
@@ -49,8 +50,6 @@ def run_one_round(dataset_name,
     log_json = os.path.join(exp_dir, 'global_output.json')
     log_json_quali = os.path.join(exp_dir, 'global_output_quali.json')
 
-    num_cores = round(cpu_count(logical=False) / 2)
-
     time_print('=' * 30 + experiment_tag + '=' * 30)
     start = timer()
 
@@ -62,7 +61,7 @@ def run_one_round(dataset_name,
 
     rf_start = timer()
     best_params = optuna_random_forest(x_train, y_train)
-    rf = RandomForestClassifier(**best_params, random_state=SEED, n_jobs=num_cores)
+    rf = RandomForestClassifier(**best_params, random_state=SEED, n_jobs=NUM_CPU)
     # rf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=SEED)
     rf.fit(x_train, y_train)
     rf_end = timer()

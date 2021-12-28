@@ -11,12 +11,14 @@ from anchor import anchor_tabular
 from sklearn.metrics import accuracy_score, precision_score, f1_score, recall_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 from timeit import default_timer as timer
+from psutil import cpu_count
 
 from hyperparameter import optuna_lgb, optuna_random_forest, optuna_decision_tree
 from utils import load_data, time_print
 
 
 SEED = 2020
+NUM_CPU = cpu_count(logical=False) - 1
 
 
 def anchor_explain_single(row, explainer, model, threshold=.95, random_state=SEED):
@@ -121,7 +123,7 @@ def run_experiment(dataset_name):
         time_print('rf optuna start...')
         rf_best_params = optuna_random_forest(x_train, y_train)
         rf_optuna_end = timer()
-        rf = RandomForestClassifier(**rf_best_params, n_jobs=-1, random_state=SEED)
+        rf = RandomForestClassifier(**rf_best_params, n_jobs=NUM_CPU, random_state=SEED)
         rf.fit(x_train, y_train)
         y_pred = rf.predict(x_valid)
         rf_fit_predict_end = timer()

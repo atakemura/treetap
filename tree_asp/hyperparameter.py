@@ -6,9 +6,11 @@ from sklearn.metrics import accuracy_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from rulefit import RuleFit
+from psutil import cpu_count
 
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
+NUM_CPU = cpu_count(logical=False) - 1
 
 
 def optuna_decision_tree(X, y, random_state=2020):
@@ -107,7 +109,7 @@ def optuna_random_forest(X, y, random_state=2020):
                   'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.01),
                   'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy'])
                   }
-        rf = RandomForestClassifier(**params, random_state=random_state)
+        rf = RandomForestClassifier(**params, random_state=random_state, n_jobs=NUM_CPU)
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state)
         rf.fit(x_train, y_train)
         y_pred = rf.predict(x_valid)
@@ -189,7 +191,7 @@ def optuna_lgb(X, y, static_params, random_state=2020):
     sampler = optuna.samplers.TPESampler(seed=random_state)
     study = optuna.create_study(direction='minimize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.optimize(objective, n_trials=100, timeout=600, callbacks=[optuna_early_stopping_callback], n_jobs=1)
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params
 
 
@@ -226,17 +228,14 @@ def optuna_rulefit(X, y, rf_params=None, random_state=2020):
         return
 
     def objective(trial: optuna.Trial):
-        # numeric: tree_size, sample_fract, max_rules, memory_par,
+        # numeric: memory_par,
         # bool: lin_standardise, lin_trim_quantile,
-        params = {# 'tree_size': trial.suggest_int('tree_size', 50, 500, 10),
-                  # 'sample_fract': trial.suggest_float('sample_fract', 0.01, 1.0, step=0.02),
-                  # 'max_rules': trial.suggest_int('max_rules', 10, 100),
-                  'memory_par': trial.suggest_float('memory_par', 0.0, 1.0, step=0.1),
+        params = {'memory_par': trial.suggest_float('memory_par', 0.0, 1.0, step=0.1),
                   'lin_standardise': trial.suggest_categorical('lin_standardise', [True, False]),
                   'lin_trim_quantile': trial.suggest_categorical('lin_trim_quantile', [True, False]),
         }
         rf = RandomForestClassifier(n_jobs=1, random_state=random_state, **rf_params)
-        rfit = RuleFit(tree_generator=rf, max_rules=500, rfmode='classify', n_jobs=1,
+        rfit = RuleFit(tree_generator=rf, max_rules=500, rfmode='classify', n_jobs=NUM_CPU,
                        random_state=random_state, **params)
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state)
         rfit.fit(x_train, y_train, feature_names=x_train.columns)

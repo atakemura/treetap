@@ -11,12 +11,14 @@ from category_encoders.one_hot import OneHotEncoder
 from sklearn.metrics import accuracy_score, precision_score, f1_score, recall_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 from timeit import default_timer as timer
+from psutil import cpu_count
 
 from hyperparameter import optuna_lgb, optuna_random_forest, optuna_rulefit, optuna_decision_tree
 from utils import load_data, time_print
 
 
 SEED = 2020
+NUM_CPU = cpu_count(logical=False) - 1
 
 
 def run_experiment(dataset_name):
@@ -79,13 +81,13 @@ def run_experiment(dataset_name):
         if cat_X is not None:
             rf_best_params = optuna_random_forest(cat_X.iloc[train_idx], y_train)
             rf_optuna_end = timer()
-            rf = RandomForestClassifier(**rf_best_params, n_jobs=-1, random_state=SEED)
+            rf = RandomForestClassifier(**rf_best_params, n_jobs=NUM_CPU, random_state=SEED)
             rf.fit(cat_X.iloc[train_idx], y_train)
             y_pred = rf.predict(cat_X.iloc[valid_idx])
         else:
             rf_best_params = optuna_random_forest(x_train, y_train)
             rf_optuna_end = timer()
-            rf = RandomForestClassifier(**rf_best_params, n_jobs=-1, random_state=SEED)
+            rf = RandomForestClassifier(**rf_best_params, n_jobs=NUM_CPU, random_state=SEED)
             rf.fit(x_train, y_train)
             y_pred = rf.predict(x_valid)
         rf_end = timer()
@@ -157,7 +159,7 @@ def run_experiment(dataset_name):
             rfit_best_params = optuna_rulefit(cat_X.iloc[train_idx], y_train, rf_params=rf_best_params)
             rfit_optuna_end = timer()
             rf = RandomForestClassifier(n_jobs=1, random_state=SEED, **rf_best_params)
-            rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=-1, random_state=SEED)
+            rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=NUM_CPU, random_state=SEED)
             rfit.fit(cat_X.iloc[train_idx], y_train, feature_names=cat_X.columns)
             try:
                 y_pred = rfit.predict(cat_X.iloc[valid_idx])
@@ -167,7 +169,7 @@ def run_experiment(dataset_name):
             rfit_best_params = optuna_rulefit(x_train, y_train, rf_params=rf_best_params)
             rfit_optuna_end = timer()
             rf = RandomForestClassifier(n_jobs=1, random_state=SEED, **rf_best_params)
-            rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=-1, random_state=SEED)
+            rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=NUM_CPU, random_state=SEED)
             rfit.fit(x_train, y_train, feature_names=x_train.columns)
             try:
                 y_pred = rfit.predict(x_valid)

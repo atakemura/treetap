@@ -22,6 +22,7 @@ from utils import load_data, time_print
 
 
 SEED = 2020
+NUM_CPU = cpu_count(logical=False) - 1
 
 
 def run_experiment(dataset_name):
@@ -54,7 +55,6 @@ def run_one_round(dataset_name,
     le_log_json = os.path.join(exp_dir, 'local_explanation.json')
 
     n_local_instances = 100
-    num_cores = round(cpu_count(logical=False) / 2)
 
     time_print('=' * 30 + experiment_tag + '=' * 30)
     start = timer()
@@ -74,7 +74,7 @@ def run_one_round(dataset_name,
             hyperparams = pickle.load(param_in)
     else:
         hyperparams = optuna_random_forest(x_train, y_train, random_state=SEED)
-        rf = RandomForestClassifier(**hyperparams, random_state=SEED, n_jobs=num_cores)
+        rf = RandomForestClassifier(**hyperparams, random_state=SEED, n_jobs=NUM_CPU)
         rf.fit(x_train, y_train)
         with open(model_path, 'wb') as model_out:
             pickle.dump(rf, model_out, protocol=pickle.HIGHEST_PROTOCOL)
