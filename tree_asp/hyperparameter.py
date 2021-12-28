@@ -6,6 +6,9 @@ from sklearn.ensemble import RandomForestClassifier
 from rulefit import RuleFit
 
 
+optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+
 def optuna_random_forest(X, y, random_state=2020):
     early_stopping_dict = {'early_stopping_limit': 30,
                            'early_stop_count': 0,
