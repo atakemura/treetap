@@ -11,7 +11,7 @@ from tqdm import tqdm
 from timeit import default_timer as timer
 
 from hyperparameter import optuna_lgb
-from rule_extractor import LGBMGlobalRuleExtractor, LGBMLocalRuleExtractor
+from rule_extractor import LGBMLocalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule

@@ -13,7 +13,7 @@ from tqdm import tqdm
 from timeit import default_timer as timer
 from psutil import cpu_count
 
-from rule_extractor import RFGlobalRuleExtractor, RFLocalRuleExtractor
+from rule_extractor import RFLocalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from hyperparameter import optuna_random_forest
