@@ -5,13 +5,13 @@ import re
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from category_encoders.one_hot import OneHotEncoder
 from itertools import product
-from pathlib import Path
 from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
+from psutil import cpu_count
 
 from hyperparameter import optuna_random_forest
 from rule_extractor import RFGlobalRuleExtractor
@@ -46,8 +46,10 @@ def run_one_round(dataset_name,
     exp_dir = './tmp/journal/global'
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
-    log_json = os.path.join(exp_dir, 'output.json')
-    log_json_quali = os.path.join(exp_dir, 'output_quali.json')
+    log_json = os.path.join(exp_dir, 'global_output.json')
+    log_json_quali = os.path.join(exp_dir, 'global_output_quali.json')
+
+    num_cores = round(cpu_count(logical=False) / 2)
 
     time_print('=' * 30 + experiment_tag + '=' * 30)
     start = timer()
@@ -60,7 +62,7 @@ def run_one_round(dataset_name,
 
     rf_start = timer()
     best_params = optuna_random_forest(x_train, y_train)
-    rf = RandomForestClassifier(**best_params, random_state=SEED)
+    rf = RandomForestClassifier(**best_params, random_state=SEED, n_jobs=num_cores)
     # rf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=SEED)
     rf.fit(x_train, y_train)
     rf_end = timer()
@@ -69,7 +71,8 @@ def run_one_round(dataset_name,
     vanilla_metrics = {'accuracy':  accuracy_score(y_valid, rf_vanilla_pred),
                        'precision': precision_score(y_valid, rf_vanilla_pred, average=metric_averaging),
                        'recall':    recall_score(y_valid, rf_vanilla_pred, average=metric_averaging),
-                       'f1':        f1_score(y_valid, rf_vanilla_pred, average=metric_averaging)}
+                       'f1':        f1_score(y_valid, rf_vanilla_pred, average=metric_averaging),
+                       'auc':       roc_auc_score(y_valid, rf_vanilla_pred)}
 
     ext_start = timer()
     rf_extractor = RFGlobalRuleExtractor()
@@ -128,7 +131,8 @@ def run_one_round(dataset_name,
                 rule_pred_metrics = {'accuracy': accuracy_score(y_valid, rule_pred),
                                      'precision': precision_score(y_valid, rule_pred, average=metric_averaging),
                                      'recall': recall_score(y_valid, rule_pred, average=metric_averaging),
-                                     'f1': f1_score(y_valid, rule_pred, average=metric_averaging)}
+                                     'f1': f1_score(y_valid, rule_pred, average=metric_averaging),
+                                     'auc': roc_auc_score(y_valid, rule_pred)}
                 scores.append((ans_idx, rule_pred_metrics))
             py_rule_end = timer()
             time_print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
@@ -136,6 +140,8 @@ def run_one_round(dataset_name,
 
             out_dict = {
                 # experiment
+                'model': 'rf',
+                'experiment': experiment_tag,
                 'dataset': dataset_name,
                 'n_estimators': best_params['n_estimators'],
                 'max_depth': best_params['max_depth'],
@@ -166,6 +172,8 @@ def run_one_round(dataset_name,
         else:
             out_dict = {
                 # experiment
+                'model': 'rf',
+                'experiment': experiment_tag,
                 'dataset': dataset_name,
                 'n_estimators': best_params['n_estimators'],
                 'max_depth': best_params['max_depth'],

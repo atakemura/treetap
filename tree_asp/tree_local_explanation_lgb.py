@@ -9,7 +9,6 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from tqdm import tqdm
 from timeit import default_timer as timer
-from copy import deepcopy
 
 from hyperparameter import optuna_lgb
 from rule_extractor import LGBMGlobalRuleExtractor, LGBMLocalRuleExtractor
@@ -47,8 +46,6 @@ def run_one_round(dataset_name,
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
 
-    log_json = os.path.join(exp_dir, 'output.json')
-    log_json_quali = os.path.join(exp_dir, 'output_quali.json')
     le_log_json = os.path.join(exp_dir, 'local_explanation.json')
 
     n_local_instances = 100
@@ -209,6 +206,8 @@ def run_one_round(dataset_name,
                                                                                    round(le_end - start)))
         le_out_dict = {
             # experiment
+            'model': 'lgb',
+            'experiment': experiment_tag,
             'dataset': dataset_name,
             'num_class': num_classes,
             'best_iteration': model.best_iteration,
@@ -233,6 +232,7 @@ def run_one_round(dataset_name,
             'py_local_explanation_time': le_end - le_start,
             # metrics
             'fold': fold,
+            'vanilla_metrics': vanilla_metrics,
             'local_encoding': enc_k,
             'local_encoding_file': enc_v,
             'local_explanation_scores': le_score_store

@@ -9,10 +9,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from category_encoders.one_hot import OneHotEncoder
-from pathlib import Path
 from tqdm import tqdm
 from timeit import default_timer as timer
-from copy import deepcopy
+from psutil import cpu_count
 
 from rule_extractor import RFGlobalRuleExtractor, RFLocalRuleExtractor
 from classifier import RuleClassifier
@@ -52,11 +51,10 @@ def run_one_round(dataset_name,
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
 
-    log_json = os.path.join(exp_dir, 'output.json')
-    log_json_quali = os.path.join(exp_dir, 'output_quali.json')
     le_log_json = os.path.join(exp_dir, 'local_explanation.json')
 
     n_local_instances = 100
+    num_cores = round(cpu_count(logical=False) / 2)
 
     time_print('=' * 30 + experiment_tag + '=' * 30)
     start = timer()
@@ -76,7 +74,7 @@ def run_one_round(dataset_name,
             hyperparams = pickle.load(param_in)
     else:
         hyperparams = optuna_random_forest(x_train, y_train, random_state=SEED)
-        rf = RandomForestClassifier(**hyperparams, random_state=SEED)
+        rf = RandomForestClassifier(**hyperparams, random_state=SEED, n_jobs=num_cores)
         rf.fit(x_train, y_train)
         with open(model_path, 'wb') as model_out:
             pickle.dump(rf, model_out, protocol=pickle.HIGHEST_PROTOCOL)
@@ -90,7 +88,8 @@ def run_one_round(dataset_name,
     vanilla_metrics = {'accuracy':  accuracy_score(y_valid, rf_vanilla_pred),
                        'precision': precision_score(y_valid, rf_vanilla_pred, average=metric_averaging),
                        'recall':    recall_score(y_valid, rf_vanilla_pred, average=metric_averaging),
-                       'f1':        f1_score(y_valid, rf_vanilla_pred, average=metric_averaging)}
+                       'f1':        f1_score(y_valid, rf_vanilla_pred, average=metric_averaging),
+                       'auc':       roc_auc_score(y_valid, rf_vanilla_pred)}
 
     time_print('rule extraction start')
     ext_start = timer()
@@ -107,7 +106,7 @@ def run_one_round(dataset_name,
             pickle.dump(rf_extractor, ext_out, protocol=pickle.HIGHEST_PROTOCOL)
     ext_end = timer()
     time_print('rule extraction completed {} seconds | {} from start'.format(round(ext_end - ext_start),
-                                                                        round(ext_end - start)))
+                                                                             round(ext_end - start)))
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
         outfile.write(res_str)
@@ -191,6 +190,7 @@ def run_one_round(dataset_name,
         le_out_dict = {
             # experiment
             'model': 'rf',
+            'experiment': experiment_tag,
             'dataset': dataset_name,
             'n_estimators': hyperparams['n_estimators'],
             'max_depth': hyperparams['max_depth'],
@@ -213,6 +213,7 @@ def run_one_round(dataset_name,
             'py_local_explanation_time': le_end - le_start,
             # metrics
             'fold': fold,
+            'vanilla_metrics': vanilla_metrics,
             'local_encoding': enc_k,
             'local_encoding_file': enc_v,
             'local_explanation_scores': le_score_store

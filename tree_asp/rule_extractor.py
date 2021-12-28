@@ -340,6 +340,7 @@ class RFGlobalRuleExtractor:
         self.rules_ = None
         self.conditions_ = None
         self.metric_averaging = None
+        self.num_cores = round(cpu_count(logical=False) / 2)
 
     def fit(self, X, y, model, feature_names=None, **params):
         # validate the input model
@@ -968,6 +969,7 @@ class LGBMGlobalRuleExtractor:
         self.conditions_ = None
         self.num_tree_per_iteration = None
         self.metric_averaging = None
+        self.num_cores = round(cpu_count(logical=False) / 2)
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         if not isinstance(model, lgb.Booster):
@@ -985,13 +987,13 @@ class LGBMGlobalRuleExtractor:
         self.num_tree_per_iteration = model_dump['num_tree_per_iteration']
 
         with timer_exec('[LGBM RuleExtractor] LGBMTree init'):
-            with Pool(processes=cpu_count(logical=False)) as pool:
+            with Pool(processes=self.num_cores) as pool:
                 lgbtrees = pool.map(LGBMTree, model_dump['tree_info'])
         # lgbtrees = [LGBMTree(x) for x in model_dump['tree_info']]
 
         rules = {}
         with timer_exec('[LGBM RuleExtractor] export text rule tree'):
-            with Pool(processes=cpu_count(logical=False)) as pool:
+            with Pool(processes=self.num_cores) as pool:
                 _tmp_rules = pool.map(self.export_text_rule_tree, lgbtrees)
 
         # for t_idx, tree in enumerate(lgbtrees):
@@ -1095,7 +1097,7 @@ class LGBMGlobalRuleExtractor:
         _tmp_rules = tree_rules
         rules = {}
         # adding rule statistics
-        with Pool(processes=cpu_count(logical=False)) as pool:
+        with Pool(processes=self.num_cores) as pool:
             # make same number of x y
             mod_rules = pool.starmap(self.export_text_rule_lgb_parallel_sub,
                                      ((t_rules, X, y) for t_rules in _tmp_rules.values()))
@@ -1281,7 +1283,6 @@ class LGBMGlobalRuleExtractor:
 class LGBMLocalRuleExtractor(LGBMGlobalRuleExtractor):
     def __init__(self, verbose=False):
         super().__init__(verbose)
-        # self.non_rule_keys.append('leaf_idx')
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         if not isinstance(model, lgb.Booster):
@@ -1299,13 +1300,13 @@ class LGBMLocalRuleExtractor(LGBMGlobalRuleExtractor):
         self.num_tree_per_iteration = model_dump['num_tree_per_iteration']
 
         with timer_exec('[LGBM Local RuleExtractor] LGBMTree init'):
-            with Pool(processes=cpu_count(logical=False)) as pool:
+            with Pool(processes=self.num_cores) as pool:
                 lgbtrees = pool.map(LGBMTree, model_dump['tree_info'])
         # lgbtrees = [LGBMTree(x) for x in model_dump['tree_info']]
 
         rules = {}
         with timer_exec('[LGBM Local RuleExtractor] export text rule tree'):
-            with Pool(processes=cpu_count(logical=False)) as pool:
+            with Pool(processes=self.num_cores) as pool:
                 _tmp_rules = pool.map(self.export_text_rule_tree, lgbtrees)
 
         # for t_idx, tree in enumerate(lgbtrees):
@@ -1373,7 +1374,7 @@ class LGBMLocalRuleExtractor(LGBMGlobalRuleExtractor):
         rules = {}
         classes = y.unique()
         # adding rule statistics
-        with Pool(processes=cpu_count(logical=False)) as pool:
+        with Pool(processes=self.num_cores) as pool:
             # make same number of x y
             mod_rules = pool.starmap(self.export_text_rule_lgb_parallel_sub,
                                      ((t_rules, X, y, classes) for t_rules in _tmp_rules.values()))

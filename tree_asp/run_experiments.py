@@ -1,7 +1,5 @@
 import weka.core.jvm as jvm
 
-from pathlib import Path
-
 from anchor_eval.wrapper import run_experiment as anchor_experiment
 from benchmark_eval.wrapper import run_experiment as baseline_experiment
 from weka_eval.wrapper import run_experiment as weka_experiment

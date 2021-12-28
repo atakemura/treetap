@@ -180,6 +180,8 @@ def run_one_round(dataset_name,
 
             out_dict = {
                 # experiment
+                'model': 'lgb',
+                'experiment': experiment_tag,
                 'dataset': dataset_name,
                 'num_class': num_classes,
                 'best_iteration': model.best_iteration,
@@ -212,6 +214,8 @@ def run_one_round(dataset_name,
         else:
             out_dict = {
                 # experiment
+                'model': 'lgb',
+                'experiment': experiment_tag,
                 'dataset': dataset_name,
                 'num_class': num_classes,
                 'best_iteration': model.best_iteration,
