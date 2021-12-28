@@ -1,12 +1,68 @@
 import lightgbm as lgb
 import optuna
+
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from rulefit import RuleFit
 
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+
+def optuna_decision_tree(X, y, random_state=2020):
+    early_stopping_dict = {'early_stopping_limit': 30,
+                           'early_stop_count': 0,
+                           'best_score': None}
+
+    def optuna_early_stopping_callback(study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
+        if early_stopping_dict['best_score'] is None:
+            early_stopping_dict['best_score'] = study.best_value
+
+        if study.direction == optuna.study.StudyDirection.MAXIMIZE:
+            if study.best_value > early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        elif study.direction == optuna.study.StudyDirection.MINIMIZE:
+            if study.best_value < early_stopping_dict['best_score']:
+                early_stopping_dict['best_score'] = study.best_value
+                early_stopping_dict['early_stop_count'] = 0
+            else:
+                early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+                if early_stopping_dict['early_stop_count'] > early_stopping_dict['early_stopping_limit']:
+                    study.stop()
+                else:
+                    early_stopping_dict['early_stop_count'] = early_stopping_dict['early_stop_count'] + 1
+        else:
+            raise ValueError('Unknown study direction: {}'.format(study.direction))
+        return
+
+    def objective(trial: optuna.Trial):
+        # numeric: max_depth, min_samples_split, min_samples_leaf, min_weight_fraction_leaf
+        # choice: criterion(gini, entropy)
+        params = {'max_depth': trial.suggest_int('max_depth', 2, 10),
+                  'min_samples_split': trial.suggest_float('min_samples_split', 0.05, 0.5, step=0.01),
+                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 0.05, 0.5, step=0.01),
+                  'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.01),
+                  'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy']),
+                  }
+        dt = DecisionTreeClassifier(**params, random_state=random_state)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state)
+        dt.fit(x_train, y_train)
+        y_pred = dt.predict(x_valid)
+        acc = accuracy_score(y_valid, y_pred)
+        return acc
+    sampler = optuna.samplers.TPESampler(seed=random_state)
+    study = optuna.create_study(direction='maximize', sampler=sampler,
+                                pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
+    return study.best_params
 
 
 def optuna_random_forest(X, y, random_state=2020):

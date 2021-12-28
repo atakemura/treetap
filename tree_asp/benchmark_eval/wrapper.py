@@ -5,18 +5,18 @@ import lightgbm as lgb
 import json
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from rulefit import RuleFit
 from category_encoders.one_hot import OneHotEncoder
 from sklearn.metrics import accuracy_score, precision_score, f1_score, recall_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 from timeit import default_timer as timer
 
-from hyperparameter import optuna_lgb, optuna_random_forest, optuna_rulefit
+from hyperparameter import optuna_lgb, optuna_random_forest, optuna_rulefit, optuna_decision_tree
 from utils import load_data, time_print
 
 
 SEED = 2020
-
 
 
 def run_experiment(dataset_name):
@@ -40,6 +40,39 @@ def run_experiment(dataset_name):
         time_print('fold={}'.format(f_idx+1))
         x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
+
+        dt_start = timer()
+        time_print('rf optuna start...')
+        if cat_X is not None:
+            dt_best_params = optuna_decision_tree(cat_X.iloc[train_idx], y_train)
+            dt_optuna_end = timer()
+            dt = DecisionTreeClassifier(**dt_best_params, random_state=SEED)
+            dt.fit(cat_X.iloc[train_idx], y_train)
+            y_pred = dt.predict(cat_X.iloc[valid_idx])
+        else:
+            dt_best_params = optuna_decision_tree(x_train, y_train)
+            dt_optuna_end = timer()
+            dt = DecisionTreeClassifier(**dt_best_params, random_state=SEED)
+            dt.fit(x_train, y_train)
+            y_pred = dt.predict(x_valid)
+        dt_end = timer()
+        acc = accuracy_score(y_valid, y_pred)
+        time_print('dt fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+                           'precision': precision_score(y_valid, y_pred, average=metric_averaging),
+                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
+                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
+                           'auc': roc_auc_score(y_valid, y_pred)}
+        dt_dict = {
+            'dataset': dataset_name,
+            'fold': f_idx,
+            'model': 'DecisionTree',
+            'dt.best_params': dt_best_params,
+            'vanilla_metrics': vanilla_metrics,
+            'total_time': dt_end - dt_start,
+            'optuna_time': dt_optuna_end - dt_start,
+            'fit_predict_time': dt_end - dt_optuna_end
+        }
 
         rf_start = timer()
         time_print('rf optuna start...')
@@ -67,8 +100,6 @@ def run_experiment(dataset_name):
             'dataset': dataset_name,
             'fold': f_idx,
             'model': 'RandomForest',
-            # 'rf.model': str(rf.model),
-            # 'rf.model.graph': rf.model.graph,
             'rf.best_params': rf_best_params,
             'vanilla_metrics': vanilla_metrics,
             'total_time': rf_end - rf_start,
@@ -113,7 +144,6 @@ def run_experiment(dataset_name):
             'dataset': dataset_name,
             'fold': f_idx,
             'model': 'LightGBM',
-            # 'lgb.model': str(lgb.model),
             'lgb.best_params': lgb_best_params,
             'vanilla_metrics': vanilla_metrics,
             'total_time': lgb_end - lgb_start,
@@ -184,6 +214,7 @@ def run_experiment(dataset_name):
             }
 
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
+            out_log_json.write(json.dumps(dt_dict) + '\n')
             out_log_json.write(json.dumps(rf_dict) + '\n')
             out_log_json.write(json.dumps(lgb_dict) + '\n')
             out_log_json.write(json.dumps(rfit_dict) + '\n')
