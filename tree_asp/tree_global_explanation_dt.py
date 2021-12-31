@@ -139,7 +139,7 @@ def run_one_round(dataset_name,
                 'model': 'DecisionTree',
                 'experiment': experiment_tag,
                 'dataset': dataset_name,
-                'n_estimators': best_params['n_estimators'],
+                # 'n_estimators': best_params['n_estimators'],
                 'max_depth': best_params['max_depth'],
                 # 'asprin_preference': asprin_pref,
                 'clingo_completed': clingo_completed,
@@ -171,7 +171,7 @@ def run_one_round(dataset_name,
                 'model': 'DecisionTree',
                 'experiment': experiment_tag,
                 'dataset': dataset_name,
-                'n_estimators': best_params['n_estimators'],
+                # 'n_estimators': best_params['n_estimators'],
                 'max_depth': best_params['max_depth'],
                 # 'asprin_preference': asprin_pref,
                 'clingo_completed': clingo_completed,
@@ -242,32 +242,29 @@ def run_one_round(dataset_name,
 if __name__ == '__main__':
     start_time = timer()
 
-    debug_mode = True
+    for data in [
+        'autism',
+        'breast',
+        'cars',
+        'credit_australia',
+        'heart',
+        'ionosphere',
+        'kidney',
+        'krvskp',
+        'voting',
+        'census',
+        # 'airline',
+        # 'eeg',
+        # 'kdd99',
+        'synthetic_1',
+        'credit_taiwan',
+        'credit_german',
+        'adult',
+        'compas'
+    ]:
+        time_print('='*40 + data + '='*40)
+        run_experiment(data)
 
-    if debug_mode:
-        data = ['autism', 'breast',
-                'cars',
-                'credit_australia',
-                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting',
-                'credit_taiwan',
-                # 'eeg',
-                'census',
-                'synthetic_1'
-                ]
-        encodings = ['skyline']
-        asprin_pref = ['pareto_1']
-    else:
-        data = ['breast_sk', 'iris', 'wine',
-                'autism', 'breast', 'cars', 'credit_australia',
-                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']
-        n_estimators = [10]
-        max_depths = [5]
-        encodings = ['skyline', 'maximal', 'closed']
-        asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
-
-    combinations = product(data, encodings)
-    for cond_tuple in tqdm(combinations):
-        run_experiment(*cond_tuple)
     end_time = timer()
     e = end_time - start_time
     time_print('Time elapsed(s): {}'.format(e))
