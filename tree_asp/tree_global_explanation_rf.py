@@ -22,7 +22,7 @@ from utils import load_data, time_print
 
 
 SEED = 2020
-NUM_CPU = cpu_count(logical=False) - 1
+NUM_CPU = cpu_count(logical=False)
 
 
 def run_experiment(dataset_name):

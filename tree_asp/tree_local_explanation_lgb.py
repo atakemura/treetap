@@ -122,11 +122,12 @@ def run_one_round(dataset_name,
 
     for enc_idx, (enc_k, enc_v) in enumerate(encoding_dict.items()):
         le_start = timer()
-        time_print('local explanation enc {} {}/{}'.format(enc_k, enc_idx+1, len(encoding_dict)))
+        time_print('\tlocal explanation enc {} {}/{}'.format(enc_k, enc_idx+1, len(encoding_dict)))
         le_score_store = {}
 
         for s_idx, v_idx in enumerate(sample_idx):
-            time_print('local explanation {}/{}'.format(s_idx+1, n_local_instances))
+            if ((s_idx+1) % 10) == 0:
+                time_print('\t\tlocal explanation {}/{}'.format(s_idx+1, n_local_instances))
             # given a single data point, find paths and rules that fire, leading to the conclusion
             local_asp_prestr = local_lgb_extractor.transform(x_valid.loc[[v_idx]], y_valid.loc[v_idx], model=model)
             if len(local_asp_prestr) > 1:

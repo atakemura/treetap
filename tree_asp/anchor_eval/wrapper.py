@@ -18,7 +18,7 @@ from utils import load_data, time_print
 
 
 SEED = 2020
-NUM_CPU = cpu_count(logical=False) - 1
+NUM_CPU = cpu_count(logical=False)
 
 
 def anchor_explain_single(row, explainer, model, threshold=.95, random_state=SEED):
@@ -273,23 +273,19 @@ def run_experiment(dataset_name):
 if __name__ == '__main__':
     for data in [
         'autism',
-        # 'breast',
-        # 'cars',
-        # 'credit_australia',
-        # 'heart',
-        # 'ionosphere',
-        # 'kidney',
-        # 'krvskp',
-        # 'voting',
-        # 'census',
-        #  # 'airline',
-        #  # 'eeg',
-        #  # 'kdd99',
-        # 'synthetic_1',
-        # 'credit_taiwan'
-        # 'credit_german',
-        # 'adult',
-        # 'compas'
+        'breast',
+        'cars',
+        'credit_australia',
+        'heart',
+        'ionosphere',
+        'kidney',
+        'krvskp',
+        'voting',
+        'credit_taiwan',
+        'credit_german',
+        'adult',
+        'compas',
+        'census',
     ]:
         time_print('='*40 + data + '='*40)
         run_experiment(data)

@@ -22,7 +22,7 @@ from utils import load_data, time_print
 
 
 SEED = 2020
-NUM_CPU = cpu_count(logical=False) - 1
+NUM_CPU = cpu_count(logical=False)
 
 
 def run_experiment(dataset_name):
@@ -108,11 +108,12 @@ def run_one_round(dataset_name,
 
     for enc_idx, (enc_k, enc_v) in enumerate(encoding_dict.items()):
         le_start = timer()
-        time_print('local explanation enc {} {}/{}'.format(enc_k, enc_idx + 1, len(encoding_dict)))
+        time_print('\tlocal explanation enc {} {}/{}'.format(enc_k, enc_idx + 1, len(encoding_dict)))
         le_score_store = {}
 
         for s_idx, v_idx in enumerate(sample_idx):
-            time_print('local explanation {}/{}'.format(s_idx+1, n_local_instances))
+            if ((s_idx+1) % 10) == 0:
+                time_print('\t\tlocal explanation {}/{}'.format(s_idx+1, n_local_instances))
             # given a single data point, find paths and rules that fire, leading to the conclusion
             local_asp_prestr = local_rf_extractor.transform(x_valid.loc[[v_idx]], y_valid.loc[v_idx], model=rf)
             if len(local_asp_prestr) > 1:
@@ -206,38 +207,29 @@ def run_one_round(dataset_name,
 if __name__ == '__main__':
     start_time = timer()
 
-    debug_mode = True
+    for data in [
+        'autism',
+        'breast',
+        'cars',
+        'credit_australia',
+        'heart',
+        'ionosphere',
+        'kidney',
+        'krvskp',
+        'voting',
+        'census',
+        # 'airline',
+        # 'eeg',
+        # 'kdd99',
+        'synthetic_1',
+        'credit_taiwan',
+        'credit_german',
+        'adult',
+        'compas'
+    ]:
+        time_print('='*40 + data + '='*40)
+        run_experiment(data)
 
-    if debug_mode:
-        data = [
-            'autism',
-            'breast',
-            'cars',
-            'credit_australia',
-            'heart',
-            'ionosphere',
-            'kidney',
-            'krvskp',
-            'voting',
-            'credit_taiwan',
-            # 'eeg',
-            'census',
-            # 'synthetic_1'
-            'adult',
-            'credit_german',
-            'compas'
-                ]
-    else:
-        data = ['breast_sk', 'iris', 'wine',
-                'autism', 'breast', 'cars', 'credit_australia',
-                'heart', 'ionosphere', 'kidney', 'krvskp', 'voting']
-        n_estimators = [10]
-        max_depths = [5]
-        encodings = ['skyline', 'maximal', 'closed']
-        asprin_pref = ['pareto_1', 'pareto_2', 'lexico']
-
-    for d in tqdm(data):
-        run_experiment(d)
     end_time = timer()
     e = end_time - start_time
     time_print('Time elapsed(s): {}'.format(e))

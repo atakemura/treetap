@@ -10,7 +10,7 @@ from psutil import cpu_count
 
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
-NUM_CPU = cpu_count(logical=False) - 1
+NUM_CPU = cpu_count(logical=False)
 
 
 def optuna_decision_tree(X, y, random_state=2020):
