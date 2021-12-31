@@ -208,7 +208,8 @@ class DTGlobalRuleExtractor:
                 mask_res = reduce(and_, _tmp_dfs)
 
                 path_rule['predict_class'] = 1
-                y_pred = [path_rule['predict_class'] for _ in range(len(y[mask_res]))]
+                y_pred = np.zeros(y.shape)
+                y_pred[mask_res] = path_rule['predict_class']
                 path_rule['condition_length'] = len(_tmp_dfs)
                 path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
                 path_rule['frequency'] = len(y[mask_res])  # coverage
@@ -358,11 +359,11 @@ class DTLocalRuleExtractor(DTGlobalRuleExtractor):
         return self
 
     def transform(self, X, y=None, model=None, **params):
-        leaf_indices = model.apply(X)
+        leaf_indices = model.apply(X).reshape(-1,1)
         cls = (model.predict(X) > 0.5).astype(int)
         rule_indices = np.zeros_like(leaf_indices) - 1
         rule_tree_indices = list()
-        candidate_ssp_rules = list()
+        candidate_asp_rules = list()
 
         for s_idx, sample_leaf_idx in enumerate(leaf_indices):
             rule_tree_dict = defaultdict(list)
@@ -375,16 +376,16 @@ class DTLocalRuleExtractor(DTGlobalRuleExtractor):
                 rule = self.all_path_rule.get(key)
                 if rule is None:
                     assert False, 'No path for such key: {}'.format(key)
-                rule_indices[s_idx, sample_leaf_idx] = rule['rule'].idx
+                rule_indices[s_idx, t_idx] = rule['rule'].idx
                 rule_tree_dict[rule['rule'].idx].append(t_idx)
                 if rule not in rule_dict_list:
                     rule_dict_list.append(rule)
             if len(rule_tree_dict) < 1:
                 assert False, 'Empty rule list is not allowed'
             rule_tree_indices.append(dict(rule_tree_dict))
-            candidate_ssp_rules.append(self.asp_str_from_dicts(rule_dict_list))
+            candidate_asp_rules.append(self.asp_str_from_dicts(rule_dict_list))
 
-        return candidate_ssp_rules
+        return candidate_asp_rules
 
     def export_text_rule_dt(self, tree_rules: dict, X, y, classes=None):
         if classes is None:
@@ -901,7 +902,7 @@ class RFLocalRuleExtractor(RFGlobalRuleExtractor):
         cls = (model.predict(X) > 0.5).astype(int)
         rule_indices = np.zeros_like(leaf_indices) - 1
         rule_tree_indices = list()
-        candidate_ssp_rules = list()
+        candidate_asp_rules = list()
 
         for s_idx, sample_leaf_idx in enumerate(leaf_indices):
             rule_tree_dict = defaultdict(list)
@@ -914,16 +915,16 @@ class RFLocalRuleExtractor(RFGlobalRuleExtractor):
                 rule = self.all_path_rule.get(key)
                 if rule is None:
                     assert False, 'No path for such key: {}'.format(key)
-                rule_indices[s_idx, sample_leaf_idx] = rule['rule'].idx
+                rule_indices[s_idx, t_idx] = rule['rule'].idx
                 rule_tree_dict[rule['rule'].idx].append(t_idx)
                 if rule not in rule_dict_list:
                     rule_dict_list.append(rule)
             if len(rule_tree_dict) < 1:
                 assert False, 'Empty rule list is not allowed'
             rule_tree_indices.append(dict(rule_tree_dict))
-            candidate_ssp_rules.append(self.asp_str_from_dicts(rule_dict_list))
+            candidate_asp_rules.append(self.asp_str_from_dicts(rule_dict_list))
 
-        return candidate_ssp_rules
+        return candidate_asp_rules
 
     def export_text_rule_rf(self, tree_rules: dict, X, y, classes=None):
         if classes is None:
@@ -1581,7 +1582,7 @@ class LGBMLocalRuleExtractor(LGBMGlobalRuleExtractor):
                 if rule is None:
                     assert False, 'No path for such key: {}'.format(key)
 
-                rule_indices[s_idx, sample_leaf_idx] = rule['rule'].idx
+                rule_indices[s_idx, t_idx] = rule['rule'].idx
                 rule_tree_dict[rule['rule'].idx].append(t_idx)
                 if rule not in rule_dict_list:
                     rule_dict_list.append(rule)
