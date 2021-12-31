@@ -44,6 +44,9 @@ RUN pip install git+git://github.com/atakemura/rulefit.git@fix-pandas-error
 # anchor
 RUN pip install anchor-exp
 
+RUN pip install -U scikit-learn && \
+    pip install -U joblib
+
 RUN apt install -y openssh-server
 
 RUN ( \
