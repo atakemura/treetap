@@ -1,21 +1,15 @@
-FROM continuumio/anaconda3:latest
+FROM continuumio/anaconda3:2020.02
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV PATH /opt/conda/bin:$PATH
 
-RUN apt update && \
-    # python packages
-    conda install pip && \
-    pip install --upgrade pip && \
-    pip install problog && \
-    pip install category_encoders && \
-    pip install optuna && \
-    # optuna bug https://github.com/optuna/optuna/pull/1599
-    pip install --upgrade packaging && \
+RUN apt --allow-releaseinfo-change update && \
+    # python packages \
+    conda update --all && \
+    conda install category_encoders && \
+    conda install -c conda-forge optuna && \
     conda install -c potassco clingo && \
-    conda install -c potassco asprin && \
     conda install -c conda-forge lightgbm && \
-    conda install -c conda-forge xgboost && \
     conda install -c conda-forge shap
 
 # install java
@@ -27,16 +21,9 @@ ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-amd64/
 
 # weka dependencies
 RUN apt install -y build-essential python3-dev && \
-    pip install javabridge && \
+    conda install -c conda-forge javabridge && \
     pip install python-weka-wrapper3 && \
-    pip install liac-arff
-
-# corels dependencies
-RUN apt install -y libgmp-dev && \
-    pip install corels
-
-# pyfim
-RUN pip install pyfim
+    conda install liac-arff
 
 # rulefit
 RUN pip install git+git://github.com/atakemura/rulefit.git@fix-pandas-error
@@ -44,8 +31,7 @@ RUN pip install git+git://github.com/atakemura/rulefit.git@fix-pandas-error
 # anchor
 RUN pip install anchor-exp
 
-RUN pip install -U scikit-learn && \
-    pip install -U joblib
+RUN conda clean --all
 
 RUN apt install -y openssh-server
 
