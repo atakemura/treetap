@@ -5,6 +5,7 @@ import optuna
 import json
 import arff
 import os
+import warnings
 
 from weka.classifiers import Classifier
 from weka.core.converters import load_any_file
@@ -13,7 +14,8 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from tempfile import NamedTemporaryFile
 from timeit import default_timer as timer
 
-from utils import load_data, time_print
+from tree_asp.utils import time_print
+from utils import load_data
 
 
 class WekaJ48:
@@ -508,7 +510,7 @@ def optuna_weka_part(X, y):
 
 
 def run_experiment(dataset_name):
-    exp_dir = './tmp/journal/benchmark'
+    exp_dir = 'tree_asp/tmp/journal/benchmark'
     log_json = os.path.join(exp_dir, 'weka.json')
 
     X, y = load_data(dataset_name)
@@ -618,28 +620,28 @@ def run_experiment(dataset_name):
 
 
 if __name__ == '__main__':
-    jvm.start()
-    for data in [
-        'autism',
-        'breast',
-        'cars',
-        'credit_australia',
-        'heart',
-        'ionosphere',
-        'kidney',
-        'krvskp',
-        'voting',
-        'census',
-        # 'airline',
-        # 'eeg',
-        # 'kdd99',
-        'synthetic_1',
-        'credit_taiwan',
-        'credit_german',
-        'adult',
-        'compas'
-    ]:
-        time_print('='*40 + data + '='*40)
-        run_experiment(data)
-
-    jvm.stop()
+    try:
+        warnings.filterwarnings("ignore", category=UserWarning)
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        jvm.start()
+        for data in [
+            'autism',
+            'breast',
+            'cars',
+            'credit_australia',
+            'heart',
+            'ionosphere',
+            'kidney',
+            'krvskp',
+            'voting',
+            'census',
+            'synthetic_1',
+            'credit_taiwan',
+            'credit_german',
+            'adult',
+            'compas'
+        ]:
+            time_print('='*40 + data + '='*40)
+            run_experiment(data)
+    finally:
+        jvm.stop()
