@@ -3,9 +3,8 @@ import numpy as np
 from typing import List
 import dask.dataframe as dd
 
-from rule import Rule
-from rule_extractor import LT_PATTERN, LE_PATTERN, GT_PATTERN,\
-    GE_PATTERN, EQ_PATTERN, NEQ_PATTERN
+from tree_asp.rule import Rule
+from tree_asp.rule_extractor import LT_PATTERN, LE_PATTERN, GT_PATTERN, GE_PATTERN, EQ_PATTERN, NEQ_PATTERN
 
 
 class RuleClassifier:

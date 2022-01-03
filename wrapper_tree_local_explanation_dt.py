@@ -11,13 +11,13 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from category_encoders.one_hot import OneHotEncoder
 from timeit import default_timer as timer
 
-from rule_extractor import DTLocalRuleExtractor
-from classifier import RuleClassifier
-from clasp_parser import generate_answers
-from hyperparameter import optuna_decision_tree
-from rule import Rule
-from utils import load_data
+from tree_asp.rule_extractor import DTLocalRuleExtractor
+from tree_asp.classifier import RuleClassifier
+from tree_asp.clasp_parser import generate_answers
+from tree_asp.rule import Rule
 from tree_asp.utils import time_print
+from hyperparameter import optuna_decision_tree
+from utils import load_data
 
 
 SEED = 2020

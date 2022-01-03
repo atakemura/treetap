@@ -9,13 +9,13 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from timeit import default_timer as timer
 
-from hyperparameter import optuna_lgb
-from rule_extractor import LGBMLocalRuleExtractor
-from classifier import RuleClassifier
-from clasp_parser import generate_answers
-from rule import Rule
-from utils import load_data
+from tree_asp.rule_extractor import LGBMLocalRuleExtractor
+from tree_asp.classifier import RuleClassifier
+from tree_asp.clasp_parser import generate_answers
+from tree_asp.rule import Rule
 from tree_asp.utils import time_print
+from hyperparameter import optuna_lgb
+from utils import load_data
 
 
 SEED = 2020

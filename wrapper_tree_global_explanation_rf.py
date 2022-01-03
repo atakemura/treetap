@@ -11,13 +11,13 @@ from timeit import default_timer as timer
 from copy import deepcopy
 from psutil import cpu_count
 
-from hyperparameter import optuna_random_forest
-from rule_extractor import RFGlobalRuleExtractor
-from classifier import RuleClassifier
-from clasp_parser import generate_answers
-from rule import Rule
-from utils import load_data
+from tree_asp.rule_extractor import RFGlobalRuleExtractor
+from tree_asp.classifier import RuleClassifier
+from tree_asp.clasp_parser import generate_answers
+from tree_asp.rule import Rule
 from tree_asp.utils import time_print
+from hyperparameter import optuna_random_forest
+from utils import load_data
 
 
 SEED = 2020

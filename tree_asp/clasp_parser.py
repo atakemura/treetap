@@ -1,4 +1,4 @@
-from answers import AnswerSet, ClaspInfo
+from tree_asp.answers import AnswerSet, ClaspInfo
 
 
 def generate_answers(output: str):

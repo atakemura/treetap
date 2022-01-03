@@ -10,13 +10,13 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from timeit import default_timer as timer
 from copy import deepcopy
 
-from hyperparameter import optuna_lgb
-from rule_extractor import LGBMGlobalRuleExtractor
-from classifier import RuleClassifier
-from clasp_parser import generate_answers
-from rule import Rule
-from utils import load_data
+from tree_asp.rule_extractor import LGBMGlobalRuleExtractor
+from tree_asp.classifier import RuleClassifier
+from tree_asp.clasp_parser import generate_answers
+from tree_asp.rule import Rule
 from tree_asp.utils import time_print
+from hyperparameter import optuna_lgb
+from utils import load_data
 
 
 SEED = 2020
