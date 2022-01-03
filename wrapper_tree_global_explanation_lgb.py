@@ -7,8 +7,6 @@ import pickle
 
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-from itertools import product
-from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
 
@@ -302,9 +300,6 @@ if __name__ == '__main__':
         'krvskp',
         'voting',
         'census',
-        # 'airline',
-        # 'eeg',
-        # 'kdd99',
         'synthetic_1',
         'credit_taiwan',
         'credit_german',
