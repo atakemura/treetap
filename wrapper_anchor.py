@@ -14,7 +14,8 @@ from timeit import default_timer as timer
 from psutil import cpu_count
 
 from hyperparameter import optuna_lgb, optuna_random_forest, optuna_decision_tree
-from utils import load_data, time_print
+from utils import load_data
+from tree_asp.utils import time_print
 
 
 SEED = 2020
@@ -28,7 +29,7 @@ def anchor_explain_single(row, explainer, model, threshold=.95, random_state=SEE
 
 
 def run_experiment(dataset_name):
-    exp_dir = './tmp/journal/local'
+    exp_dir = 'tree_asp/tmp/journal/local'
     log_json = os.path.join(exp_dir, 'anchor.json')
     anchor_n_instances = 100
 
@@ -97,9 +98,14 @@ def run_experiment(dataset_name):
         dt_anchor_end = timer()
 
         anchor_metrics = {'anchor_avg_train_precision': np.mean(dt_train_prcs),
-                          'anchor_avg_train_coverage' : np.mean(dt_train_covs),
+                          'anchor_avg_train_coverage':  np.mean(dt_train_covs),
                           'anchor_avg_valid_precision': np.mean(dt_valid_prcs),
-                          'anchor_avg_valid_coverage' : np.mean(dt_valid_covs)}
+                          'anchor_avg_valid_coverage':  np.mean(dt_valid_covs),
+                          'anchor_train_precision':     dt_train_prcs,
+                          'anchor_train_coverage':      dt_train_covs,
+                          'anchor_valid_precision':     dt_valid_prcs,
+                          'anchor_valid_coverage':      dt_valid_covs,
+                          }
 
         dt_end = timer()
 
@@ -160,9 +166,14 @@ def run_experiment(dataset_name):
         rf_anchor_end = timer()
 
         anchor_metrics = {'anchor_avg_train_precision': np.mean(rf_train_prcs),
-                          'anchor_avg_train_coverage' : np.mean(rf_train_covs),
+                          'anchor_avg_train_coverage':  np.mean(rf_train_covs),
                           'anchor_avg_valid_precision': np.mean(rf_valid_prcs),
-                          'anchor_avg_valid_coverage' : np.mean(rf_valid_covs)}
+                          'anchor_avg_valid_coverage':  np.mean(rf_valid_covs),
+                          'anchor_train_precision':     rf_train_prcs,
+                          'anchor_train_coverage':      rf_train_covs,
+                          'anchor_valid_precision':     rf_valid_prcs,
+                          'anchor_valid_coverage':      rf_valid_covs,
+                          }
 
         rf_end = timer()
 
@@ -233,7 +244,7 @@ def run_experiment(dataset_name):
             if ((v_idx+1) % 10) == 0:
                 time_print('lgb anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
             # if you don't make a copy, lightgbm complains about memory issue
-            v_cp = np.copy(mat_x_valid[v_idx,:].reshape(1,-1))
+            v_cp = np.copy(mat_x_valid[v_idx, :].reshape(1, -1))
             ae = anchor_explain_single(v_cp, explainer, lgb_model)
             fit_anchor = np.where(np.all(mat_x_valid[:, ae.features()] == mat_x_valid[v_idx][ae.features()], axis=1))[0]
             v_fac_cp = np.copy(mat_x_valid[fit_anchor])
@@ -248,9 +259,14 @@ def run_experiment(dataset_name):
         lgb_end = timer()
 
         anchor_metrics = {'anchor_avg_train_precision': np.mean(lgb_train_prcs),
-                          'anchor_avg_train_coverage' : np.mean(lgb_train_covs),
+                          'anchor_avg_train_coverage':  np.mean(lgb_train_covs),
                           'anchor_avg_valid_precision': np.mean(lgb_valid_prcs),
-                          'anchor_avg_valid_coverage' : np.mean(lgb_valid_covs)}
+                          'anchor_avg_valid_coverage':  np.mean(lgb_valid_covs),
+                          'anchor_train_precision':     lgb_train_prcs,
+                          'anchor_train_coverage':      lgb_train_covs,
+                          'anchor_valid_precision':     lgb_valid_prcs,
+                          'anchor_valid_coverage':      lgb_valid_covs,
+                          }
 
         lgb_dict = {
             'dataset': dataset_name,

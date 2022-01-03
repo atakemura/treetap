@@ -9,7 +9,6 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from category_encoders.one_hot import OneHotEncoder
-from tqdm import tqdm
 from timeit import default_timer as timer
 
 from rule_extractor import DTLocalRuleExtractor
@@ -17,7 +16,8 @@ from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from hyperparameter import optuna_decision_tree
 from rule import Rule
-from utils import load_data, time_print
+from utils import load_data
+from tree_asp.utils import time_print
 
 
 SEED = 2020
@@ -42,7 +42,7 @@ def run_experiment(dataset_name):
 def run_one_round(dataset_name,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
     experiment_tag = 'dt_{}_{}'.format(dataset_name, fold)
-    exp_dir = './tmp/journal/local'
+    exp_dir = 'tree_asp/tmp/journal/local'
     # try model pickling - if this does not work save best params and fit again
     model_path = os.path.join(exp_dir, experiment_tag+'_dtmodel.pkl')
     param_path = os.path.join(exp_dir, experiment_tag+'_dtmodel_params.pkl')
@@ -79,7 +79,7 @@ def run_one_round(dataset_name,
             pickle.dump(hyperparams, param_out, protocol=pickle.HIGHEST_PROTOCOL)
     dt_end = timer()
     time_print('dt-training completed {} seconds | {} from start'.format(round(dt_end - dt_start),
-                                                                    round(dt_end - start)))
+                                                                         round(dt_end - start)))
 
     dt_vanilla_pred = dt.predict(x_valid)
     vanilla_metrics = {'accuracy':  accuracy_score(y_valid, dt_vanilla_pred),
@@ -99,9 +99,9 @@ def run_one_round(dataset_name,
     sample_idx = x_valid.sample(n_local_instances, replace=True).index
     sampled_x_valid, sampled_y_valid = x_valid.loc[sample_idx], y_valid.loc[sample_idx]
 
-    encoding_dict = {'acc_cov':  './asp_encoding/local_accuracy_coverage.lp',
-                     'prec_cov': './asp_encoding/local_precision_coverage.lp',
-                     'prec_rec': './asp_encoding/local_precision_recall.lp'}
+    encoding_dict = {'acc_cov':  'tree_asp/asp_encoding/local_accuracy_coverage.lp',
+                     'prec_cov': 'tree_asp/asp_encoding/local_precision_coverage.lp',
+                     'prec_rec': 'tree_asp/asp_encoding/local_precision_recall.lp'}
 
     for enc_idx, (enc_k, enc_v) in enumerate(encoding_dict.items()):
         le_start = timer()
@@ -115,7 +115,6 @@ def run_one_round(dataset_name,
             local_asp_prestr = local_dt_extractor.transform(x_valid.loc[[v_idx]], y_valid.loc[v_idx], model=dt)
             if len(local_asp_prestr) > 1:
                 assert False  # safety, we're explaining only 1 sample at a time, for now
-
 
             with open(local_tmp_pattern_file, 'w', encoding='utf-8') as outfile:
                 outfile.write(local_asp_prestr[0])

@@ -15,8 +15,8 @@ from multiprocessing import Pool
 from psutil import cpu_count
 from operator import and_
 
-from rule import Rule, Condition
-from utils import timer_exec
+from tree_asp.rule import Rule, Condition
+from tree_asp.utils import timer_exec, time_print
 
 LT_PATTERN = ' < '
 LE_PATTERN = ' <= '
@@ -569,7 +569,7 @@ class RFGlobalRuleExtractor:
         self.rules_ = None
         self.conditions_ = None
         self.metric_averaging = None
-        self.num_cores = round(cpu_count(logical=False) / 2)
+        self.num_cores = cpu_count(logical=False)
 
     def fit(self, X, y, model, feature_names=None, **params):
         # validate the input model
@@ -586,7 +586,7 @@ class RFGlobalRuleExtractor:
             try:
                 _, rules[t_idx] = self.export_text_rule_tree(tree, X, feature_names)
             except OnlyLeafFoundException:
-                print('skipping leaf only tree')
+                time_print('[RFGlobalRuleExtractor]\tskipping leaf only tree')
                 continue
         rules = self.export_text_rule_rf(rules, X, y)
 
@@ -884,7 +884,7 @@ class RFLocalRuleExtractor(RFGlobalRuleExtractor):
             try:
                 _, rules[t_idx] = self.export_text_rule_tree(tree, X, feature_names)
             except OnlyLeafFoundException:
-                print('skipping leaf only tree')
+                time_print('[RFLocalRuleExtractor]\tskipping leaf only tree')
                 continue
         rules = self.export_text_rule_rf(rules, X, y)
 
@@ -1198,7 +1198,7 @@ class LGBMGlobalRuleExtractor:
         self.conditions_ = None
         self.num_tree_per_iteration = None
         self.metric_averaging = None
-        self.num_cores = round(cpu_count(logical=False) / 2)
+        self.num_cores = cpu_count(logical=False)
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         if not isinstance(model, lgb.Booster):
@@ -1215,29 +1215,35 @@ class LGBMGlobalRuleExtractor:
         model_dump = model.dump_model()
         self.num_tree_per_iteration = model_dump['num_tree_per_iteration']
 
-        with timer_exec('[LGBM RuleExtractor] LGBMTree init'):
+        time_print('[LGBM RuleExtractor] LGBMTree parallel init')
+        with timer_exec('[LGBM RuleExtractor] LGBMTree parallel init'):
             with Pool(processes=self.num_cores) as pool:
                 lgbtrees = pool.map(LGBMTree, model_dump['tree_info'])
         # lgbtrees = [LGBMTree(x) for x in model_dump['tree_info']]
 
         rules = {}
-        with timer_exec('[LGBM RuleExtractor] export text rule tree'):
+        time_print('[LGBM RuleExtractor] parallel export text rule tree')
+        with timer_exec('[LGBM RuleExtractor] parallel export text rule tree'):
             with Pool(processes=self.num_cores) as pool:
                 _tmp_rules = pool.map(self.export_text_rule_tree, lgbtrees)
 
         # for t_idx, tree in enumerate(lgbtrees):
         #     _, rules[t_idx] = self.export_text_rule_tree(tree)
+        time_print('[LGBM RuleExtractor] enumerate rules')
         with timer_exec('[LGBM RuleExtractor] enumerate rules'):
             for t_idx, tree in enumerate(_tmp_rules):
                 _, rules[t_idx] = _tmp_rules[t_idx]
 
+        time_print('[LGBM RuleExtractor] parallel export text rule')
         with timer_exec('[LGBM RuleExtractor] parallel export text rule'):
             rules = self.export_text_rule_lgb_parallel(rules, X, y)
         # rules = self.export_text_rule_lgb(rules, X, y)
 
+        time_print('[LGBM RuleExtractor] asp dict from rules')
         with timer_exec('[LGBM RuleExtractor] asp dict from rules'):
             printable_dicts = self.asp_dict_from_rules(rules)
 
+        time_print('[LGBM RuleExtractor] print asp')
         with timer_exec('[LGBM RuleExtractor] print asp'):
             print_str = self.asp_str_from_dicts(printable_dicts)
         self.asp_fact_str = print_str

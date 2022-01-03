@@ -3,24 +3,25 @@ import os
 import subprocess
 import re
 
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from category_encoders.one_hot import OneHotEncoder
-from itertools import product
-from tqdm import tqdm
 from timeit import default_timer as timer
 from copy import deepcopy
+from psutil import cpu_count
 
-from hyperparameter import optuna_decision_tree
-from rule_extractor import DTGlobalRuleExtractor
+from hyperparameter import optuna_random_forest
+from rule_extractor import RFGlobalRuleExtractor
 from classifier import RuleClassifier
 from clasp_parser import generate_answers
 from rule import Rule
-from utils import load_data, time_print
+from utils import load_data
+from tree_asp.utils import time_print
 
 
 SEED = 2020
+NUM_CPU = cpu_count(logical=False)
 
 
 def run_experiment(dataset_name):
@@ -41,8 +42,8 @@ def run_experiment(dataset_name):
 
 def run_one_round(dataset_name,
                   train_idx, valid_idx, X, y, feature_names, fold=0):
-    experiment_tag = 'global_dt_{}_{}'.format(dataset_name, fold)
-    exp_dir = './tmp/journal/global'
+    experiment_tag = 'global_rf_{}_{}'.format(dataset_name, fold)
+    exp_dir = 'tree_asp/tmp/journal/global'
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
     log_json = os.path.join(exp_dir, 'global_output.json')
@@ -57,23 +58,23 @@ def run_one_round(dataset_name,
     # multilabel case
     metric_averaging = 'micro' if y_valid.nunique() > 2 else 'binary'
 
-    dt_start = timer()
-    best_params = optuna_decision_tree(x_train, y_train)
-    dt = DecisionTreeClassifier(**best_params, random_state=SEED)
-    dt.fit(x_train, y_train)
-    dt_end = timer()
+    rf_start = timer()
+    best_params = optuna_random_forest(x_train, y_train)
+    rf = RandomForestClassifier(**best_params, random_state=SEED, n_jobs=NUM_CPU)
+    rf.fit(x_train, y_train)
+    rf_end = timer()
 
-    dt_vanilla_pred = dt.predict(x_valid)
-    vanilla_metrics = {'accuracy':  accuracy_score(y_valid, dt_vanilla_pred),
-                       'precision': precision_score(y_valid, dt_vanilla_pred, average=metric_averaging),
-                       'recall':    recall_score(y_valid, dt_vanilla_pred, average=metric_averaging),
-                       'f1':        f1_score(y_valid, dt_vanilla_pred, average=metric_averaging),
-                       'auc':       roc_auc_score(y_valid, dt_vanilla_pred)}
+    rf_vanilla_pred = rf.predict(x_valid)
+    vanilla_metrics = {'accuracy':  accuracy_score(y_valid, rf_vanilla_pred),
+                       'precision': precision_score(y_valid, rf_vanilla_pred, average=metric_averaging),
+                       'recall':    recall_score(y_valid, rf_vanilla_pred, average=metric_averaging),
+                       'f1':        f1_score(y_valid, rf_vanilla_pred, average=metric_averaging),
+                       'auc':       roc_auc_score(y_valid, rf_vanilla_pred)}
 
     ext_start = timer()
-    dt_extractor = DTGlobalRuleExtractor()
-    dt_extractor.fit(x_train, y_train, model=dt, feature_names=feature_names)
-    res_str = dt_extractor.transform(x_train, y_train)
+    rf_extractor = RFGlobalRuleExtractor()
+    rf_extractor.fit(x_train, y_train, model=rf, feature_names=feature_names)
+    res_str = rf_extractor.transform(x_train, y_train)
     ext_end = timer()
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
@@ -83,9 +84,9 @@ def run_one_round(dataset_name,
         outfile.write('class(1).'.format(int(y_train.nunique() - 1)))
 
     encoding_dict = {
-        'acc_cov':  './asp_encoding/global_accuracy_coverage.lp',
-        'prec_cov': './asp_encoding/global_precision_coverage.lp',
-        'prec_rec': './asp_encoding/global_precision_recall.lp'}
+        'acc_cov':  'tree_asp/asp_encoding/global_accuracy_coverage.lp',
+        'prec_cov': 'tree_asp/asp_encoding/global_precision_coverage.lp',
+        'prec_rec': 'tree_asp/asp_encoding/global_precision_recall.lp'}
 
     for enc_idx, (enc_k, enc_v) in enumerate(encoding_dict.items()):
         clingo_start = timer()
@@ -118,7 +119,7 @@ def run_one_round(dataset_name,
                 rules = []
                 for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                     pat_idx = ans[-1][0]
-                    pat = dt_extractor.rules_[pat_idx]  # type: Rule
+                    pat = rf_extractor.rules_[pat_idx]  # type: Rule
                     rules.append(pat)
                 # break
                 rule_classifier = RuleClassifier(rules)
@@ -131,15 +132,15 @@ def run_one_round(dataset_name,
                                      'auc': roc_auc_score(y_valid, rule_pred)}
                 scores.append((ans_idx, rule_pred_metrics))
             py_rule_end = timer()
-            time_print('py rule evaluation completed {} seconds | {} from start'.format(round(py_rule_end - py_rule_start),
-                                                                                        round(py_rule_end - start)))
+            time_print('py rule evaluation completed {} seconds | {} from start'.format(
+                round(py_rule_end - py_rule_start), round(py_rule_end - start)))
 
             out_dict = {
                 # experiment
-                'model': 'DecisionTree',
+                'model': 'RandomForest',
                 'experiment': experiment_tag,
                 'dataset': dataset_name,
-                # 'n_estimators': best_params['n_estimators'],
+                'n_estimators': best_params['n_estimators'],
                 'max_depth': best_params['max_depth'],
                 # 'asprin_preference': asprin_pref,
                 'clingo_completed': clingo_completed,
@@ -149,13 +150,13 @@ def run_one_round(dataset_name,
                 # 'optimal': int(clasp_info.stats['Optimal']),
                 'clasp_time': clasp_info.stats['Time'],
                 'clasp_cpu_time': clasp_info.stats['CPU Time'],
-                # dt related
-                'dt_n_nodes': len(dt_extractor.conditions_),
-                'dt_n_patterns': len(dt_extractor.rules_),
+                # rf related
+                'rf_n_nodes': len(rf_extractor.conditions_),
+                'rf_n_patterns': len(rf_extractor.rules_),
                 'hyperparams': best_params,
                 # timer
                 'py_total_time': end - start,
-                'py_dt_time': dt_end - dt_start,
+                'py_rf_time': rf_end - rf_start,
                 'py_ext_time': ext_end - ext_start,
                 'py_asprin_time': clingo_end - clingo_start,
                 # metrics
@@ -168,10 +169,10 @@ def run_one_round(dataset_name,
         else:
             out_dict = {
                 # experiment
-                'model': 'DecisionTree',
+                'model': 'RandomForest',
                 'experiment': experiment_tag,
                 'dataset': dataset_name,
-                # 'n_estimators': best_params['n_estimators'],
+                'n_estimators': best_params['n_estimators'],
                 'max_depth': best_params['max_depth'],
                 # 'asprin_preference': asprin_pref,
                 'clingo_completed': clingo_completed,
@@ -181,13 +182,13 @@ def run_one_round(dataset_name,
                 # 'optimal': int(clasp_info.stats['Optimal']),
                 # 'clasp_time': clasp_info.stats['Time'],
                 # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
-                # dt related
-                'dt_n_nodes': len(dt_extractor.conditions_),
-                'dt_n_patterns': len(dt_extractor.rules_),
+                # rf related
+                'rf_n_nodes': len(rf_extractor.conditions_),
+                'rf_n_patterns': len(rf_extractor.rules_),
                 'hyperparams': best_params,
                 # timer
                 'py_total_time': end - start,
-                'py_dt_time': dt_end - dt_start,
+                'py_rf_time': rf_end - rf_start,
                 'py_ext_time': ext_end - ext_start,
                 'py_asprin_time': clingo_end - clingo_start,
                 # metrics
@@ -213,7 +214,7 @@ def run_one_round(dataset_name,
                     continue
                 for ans in ans_set.answer:  # list(tuple(str, tuple(int)))
                     pat_idx = ans[-1][0]
-                    pat = dt_extractor.rules_[pat_idx]  # type: Rule
+                    pat = rf_extractor.rules_[pat_idx]  # type: Rule
                     pat_dict = {
                         'rule_idx': pat.idx,
                         'items': [x.condition_str for x in pat.items],

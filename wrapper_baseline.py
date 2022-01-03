@@ -14,7 +14,8 @@ from timeit import default_timer as timer
 from psutil import cpu_count
 
 from hyperparameter import optuna_lgb, optuna_random_forest, optuna_rulefit, optuna_decision_tree
-from utils import load_data, time_print
+from utils import load_data
+from tree_asp.utils import time_print
 
 
 SEED = 2020
@@ -22,7 +23,7 @@ NUM_CPU = cpu_count(logical=False)
 
 
 def run_experiment(dataset_name):
-    exp_dir = './tmp/journal/benchmark'
+    exp_dir = 'tree_asp/tmp/journal/benchmark'
     log_json = os.path.join(exp_dir, 'baseline.json')
 
     X, y = load_data(dataset_name)
@@ -233,9 +234,6 @@ if __name__ == '__main__':
         'krvskp',
         'voting',
         'census',
-        # 'airline',
-        # 'eeg',
-        # 'kdd99',
         'synthetic_1',
         'credit_taiwan',
         'credit_german',
