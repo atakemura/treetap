@@ -41,7 +41,7 @@ def run_experiment(dataset_name):
         oh = OneHotEncoder(cols=categorical_features, use_cat_names=True)
         cat_X = oh.fit_transform(X)
         # avoid LightGBM Special character JSON error
-        cat_X = cat_X.rename(columns=lambda x: re.sub('[^A-Za-z0-9_]+', '', x))
+        cat_X = cat_X.rename(columns=lambda x: re.sub('[^A-Za-z0-9_]+', '_', x))
 
     # multilabel case
     num_classes = y.nunique()

@@ -29,7 +29,7 @@ def run_experiment(dataset_name):
         oh = OneHotEncoder(cols=categorical_features, use_cat_names=True)
         X = oh.fit_transform(X)
         # avoid special character error
-        X = X.rename(columns=lambda x: re.sub('[^A-Za-z0-9_]+', '', x))
+        X = X.rename(columns=lambda x: re.sub('[^A-Za-z0-9_]+', '_', x))
     feat = X.columns
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
