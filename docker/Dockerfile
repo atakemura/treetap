@@ -9,7 +9,8 @@ RUN apt --allow-releaseinfo-change update && \
     conda install category_encoders && \
     conda install -c conda-forge optuna && \
     conda install -c potassco clingo && \
-    conda install -c conda-forge lightgbm && \
+    # conda install -c conda-forge lightgbm && \  # if conda installs < 3.3.2 use pip \
+    pip install lightgbm && \
     conda install -c conda-forge shap
 
 # install java
@@ -26,7 +27,7 @@ RUN apt install -y build-essential python3-dev && \
     conda install liac-arff
 
 # rulefit
-RUN pip install git+git://github.com/atakemura/rulefit.git@fix-pandas-error
+RUN pip install git+https://github.com/atakemura/rulefit.git@fix-pandas-error
 
 # anchor
 RUN pip install anchor-exp
