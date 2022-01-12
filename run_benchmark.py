@@ -8,6 +8,11 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 if __name__ == '__main__':
     datasets = [
+        'census',
+        'credit_taiwan',
+        'credit_german',
+        'adult',
+        'compas',
         'autism',
         'breast',
         'cars',
@@ -17,11 +22,6 @@ if __name__ == '__main__':
         'kidney',
         'krvskp',
         'voting',
-        'credit_taiwan',
-        'credit_german',
-        'adult',
-        'compas',
-        'census',
     ]
 
     for d_idx, data in enumerate(datasets):
