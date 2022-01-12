@@ -41,6 +41,14 @@ def run_experiment(dataset_name):
         oh = OneHotEncoder(cols=categorical_features, use_cat_names=True)
         cat_X = oh.fit_transform(X)
         # avoid LightGBM Special character JSON error
+        operators = [('>=', '_ge_'),
+                     ('<=', '_le_'),
+                     ('>',  '_gt_'),
+                     ('<',  '_lt_'),
+                     ('!=', '_nq_'),
+                     ('=',  '_eq_')]
+        for op_s, op_r in operators:
+            cat_X = cat_X.rename(columns=lambda x: re.sub(op_s, op_r, x))
         cat_X = cat_X.rename(columns=lambda x: re.sub('[^A-Za-z0-9_]+', '_', x))
 
     # multilabel case
@@ -195,6 +203,9 @@ def run_experiment(dataset_name):
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
             out_log_json.write(json.dumps(rf_dict) + '\n')
 
+        # this will run out of RAM with 64GB or below, so skip
+        if dataset_name == 'census':
+            continue
         lgb_start = timer()
         time_print('lgb optuna start...')
         lgb_train = lgb.Dataset(data=x_train,
@@ -288,19 +299,19 @@ def run_experiment(dataset_name):
 
 if __name__ == '__main__':
     for data in [
-        'autism',
-        'breast',
-        'cars',
-        'credit_australia',
-        'heart',
-        'ionosphere',
-        'kidney',
-        'krvskp',
-        'voting',
-        'credit_taiwan',
-        'credit_german',
-        'adult',
-        'compas',
+        # 'autism',
+        # 'breast',
+        # 'cars',
+        # 'credit_australia',
+        # 'heart',
+        # 'ionosphere',
+        # 'kidney',
+        # 'krvskp',
+        # 'voting',
+        # 'credit_taiwan',
+        # 'credit_german',
+        # 'adult',
+        # 'compas',
         'census',
     ]:
         time_print('='*40 + data + '='*40)

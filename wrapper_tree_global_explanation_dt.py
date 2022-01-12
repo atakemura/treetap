@@ -29,6 +29,14 @@ def run_experiment(dataset_name):
         oh = OneHotEncoder(cols=categorical_features, use_cat_names=True)
         X = oh.fit_transform(X)
         # avoid special character error
+        operators = [('>=', '_ge_'),
+                     ('<=', '_le_'),
+                     ('>',  '_gt_'),
+                     ('<',  '_lt_'),
+                     ('!=', '_nq_'),
+                     ('=',  '_eq_')]
+        for op_s, op_r in operators:
+            X = X.rename(columns=lambda x: re.sub(op_s, op_r, x))
         X = X.rename(columns=lambda x: re.sub('[^A-Za-z0-9_]+', '_', x))
     feat = X.columns
 
