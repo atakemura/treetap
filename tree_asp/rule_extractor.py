@@ -1586,7 +1586,8 @@ class LGBMLocalRuleExtractor(LGBMGlobalRuleExtractor):
                 key = '{}_{}_{}'.format(t_idx, leaf, _c)
                 rule = self.all_path_rule.get(key)
                 if rule is None:
-                    assert False, 'No path for such key: {}'.format(key)
+                    # means this tree was a stump (only leaf)
+                    continue
 
                 rule_indices[s_idx, t_idx] = rule['rule'].idx
                 rule_tree_dict[rule['rule'].idx].append(t_idx)
