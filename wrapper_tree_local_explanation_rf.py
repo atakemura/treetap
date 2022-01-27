@@ -107,7 +107,7 @@ def run_one_round(dataset_name,
     local_rf_extractor = RFLocalRuleExtractor()
     local_rf_extractor.fit(x_train, y_train, model=rf, feature_names=feature_names)
 
-    sample_idx = x_valid.sample(n_local_instances, replace=True).index
+    sample_idx = x_valid.sample(n_local_instances, replace=True, random_state=SEED).index
     sampled_x_valid, sampled_y_valid = x_valid.loc[sample_idx], y_valid.loc[sample_idx]
 
     encoding_dict = {'acc_cov':  'tree_asp/asp_encoding/local_accuracy_coverage.lp',
@@ -130,6 +130,7 @@ def run_one_round(dataset_name,
             with open(local_tmp_pattern_file, 'w', encoding='utf-8') as outfile:
                 outfile.write(local_asp_prestr[0])
 
+            clingo_completed = False
             try:
                 o = subprocess.run(['clingo', enc_v,
                                     local_tmp_pattern_file, '0',
@@ -184,11 +185,11 @@ def run_one_round(dataset_name,
             # 'encoding': encoding,
             'clingo_completed': clingo_completed,
             # clasp
-            'models': clasp_info.stats['Models'],
-            'optimum': True if clasp_info.stats['Optimum'] == 'yes' else False,
-            # 'optimal': int(clasp_info.stats['Optimal']),
-            'clasp_time': clasp_info.stats['Time'],
-            'clasp_cpu_time': clasp_info.stats['CPU Time'],
+            # 'models': clasp_info.stats['Models'],
+            # 'optimum': True if clasp_info.stats['Optimum'] == 'yes' else False,
+            # # 'optimal': int(clasp_info.stats['Optimal']),
+            # 'clasp_time': clasp_info.stats['Time'],
+            # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
             # rf related
             # 'lgb_n_nodes': len(rf_extractor.conditions_),
             # 'lgb_n_patterns': len(rf_extractor.rules_),
