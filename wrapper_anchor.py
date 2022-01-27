@@ -90,7 +90,7 @@ def run_experiment(dataset_name):
         dt_valid_covs = []
         dt_valid_prcs = []
 
-        mat_x_valid = x_valid.sample(anchor_n_instances, replace=True).to_numpy()
+        mat_x_valid = x_valid.sample(anchor_n_instances, replace=True, random_state=SEED).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
             if ((v_idx+1) % 10) == 0:
                 time_print('dt anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
@@ -158,7 +158,7 @@ def run_experiment(dataset_name):
         rf_valid_covs = []
         rf_valid_prcs = []
 
-        mat_x_valid = x_valid.sample(anchor_n_instances, replace=True).to_numpy()
+        mat_x_valid = x_valid.sample(anchor_n_instances, replace=True, random_state=SEED).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
             if ((v_idx+1) % 10) == 0:
                 time_print('rf anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
@@ -250,7 +250,7 @@ def run_experiment(dataset_name):
         lgb_valid_covs = []
         lgb_valid_prcs = []
 
-        mat_x_valid = x_valid.sample(anchor_n_instances, replace=True).to_numpy()
+        mat_x_valid = x_valid.sample(anchor_n_instances, replace=True, random_state=SEED).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
             if ((v_idx+1) % 10) == 0:
                 time_print('lgb anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
