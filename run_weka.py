@@ -382,12 +382,14 @@ def optuna_weka_j48(X, y):
         j48 = WekaJ48(confidence=confidence, min_child_leaf=min_child_leaf, num_folds=num_folds,
                       reduced_error_pruning=reduced_error_pruning, no_subtree_raising=no_subtree_raising,
                       binary_splits=binary_splits)
-        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020, stratify=y)
         j48.fit(x_train, y_train)
         y_pred = j48.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
         return acc
-    study = optuna.create_study(direction='maximize')
+    sampler = optuna.samplers.TPESampler(seed=2020)
+    study = optuna.create_study(direction='maximize', sampler=sampler,
+                                pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params
 
@@ -431,12 +433,14 @@ def optuna_weka_ripper(X, y):
         no_error_check = trial.suggest_categorical('no_error_check', [True, False])
         num_folds = trial.suggest_int('num_folds', 2, 5, step=1)
         ripper = WekaRIPPER(num_folds=num_folds, prune=prune, no_error_check=no_error_check)
-        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020, stratify=y)
         ripper.fit(x_train, y_train)
         y_pred = ripper.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
         return acc
-    study = optuna.create_study(direction='maximize')
+    sampler = optuna.samplers.TPESampler(seed=2020)
+    study = optuna.create_study(direction='maximize', sampler=sampler,
+                                pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params
 
@@ -499,12 +503,14 @@ def optuna_weka_part(X, y):
         part = WekaPART(confidence=confidence, min_child_leaf=min_child_leaf, num_folds=num_folds,
                         reduced_error_pruning=reduced_error_pruning, unpruned=unpruned,
                         no_mdl=no_mdl, binary_splits=binary_splits)
-        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020, stratify=y)
         part.fit(x_train, y_train)
         y_pred = part.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
         return acc
-    study = optuna.create_study(direction='maximize')
+    sampler = optuna.samplers.TPESampler(seed=2020)
+    study = optuna.create_study(direction='maximize', sampler=sampler,
+                                pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params
 
@@ -635,7 +641,6 @@ if __name__ == '__main__':
             'krvskp',
             'voting',
             'census',
-            'synthetic_1',
             'credit_taiwan',
             'credit_german',
             'adult',

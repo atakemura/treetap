@@ -55,7 +55,7 @@ def optuna_decision_tree(X, y, random_state=2020):
                   'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy']),
                   }
         dt = DecisionTreeClassifier(**params, random_state=random_state)
-        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state, stratify=y)
         dt.fit(x_train, y_train)
         y_pred = dt.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
@@ -110,7 +110,7 @@ def optuna_random_forest(X, y, random_state=2020):
                   'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy'])
                   }
         rf = RandomForestClassifier(**params, random_state=random_state, n_jobs=NUM_CPU)
-        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state, stratify=y)
         rf.fit(x_train, y_train)
         y_pred = rf.predict(x_valid)
         acc = accuracy_score(y_valid, y_pred)
@@ -126,7 +126,6 @@ def optuna_lgb(X, y, static_params, random_state=2020):
     early_stopping_dict = {'early_stopping_limit': 30,
                            'early_stop_count': 0,
                            'best_score': None}
-    # optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     def optuna_early_stopping_callback(study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
         if early_stopping_dict['best_score'] is None:
@@ -172,7 +171,7 @@ def optuna_lgb(X, y, static_params, random_state=2020):
         pruning_callback = optuna.integration.LightGBMPruningCallback(trial, all_params['metric'], valid_name='valid')
         num_boost_round = 1000
         early_stopping = 30
-        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state, stratify=y)
         train_data = lgb.Dataset(x_train, label=y_train)
         valid_data = lgb.Dataset(x_valid, label=y_valid, reference=train_data)
 
@@ -237,7 +236,7 @@ def optuna_rulefit(X, y, rf_params=None, random_state=2020):
         rf = RandomForestClassifier(n_jobs=1, random_state=random_state, **rf_params)
         rfit = RuleFit(tree_generator=rf, max_rules=500, rfmode='classify', n_jobs=NUM_CPU,
                        random_state=random_state, **params)
-        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state)
+        x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state, stratify=y)
         rfit.fit(x_train, y_train, feature_names=x_train.columns)
         try:
             y_pred = rfit.predict(x_valid)
@@ -246,6 +245,8 @@ def optuna_rulefit(X, y, rf_params=None, random_state=2020):
             return 0   # skip this trial
         acc = accuracy_score(y_valid, y_pred)
         return acc
-    study = optuna.create_study(direction='maximize')
+    sampler = optuna.samplers.TPESampler(seed=random_state)
+    study = optuna.create_study(direction='maximize', sampler=sampler,
+                                pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
     return study.best_params
