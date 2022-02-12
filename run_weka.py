@@ -18,6 +18,10 @@ from tree_asp.utils import time_print
 from utils import load_data
 
 
+class WekaException(Exception):
+    pass
+
+
 class WekaJ48:
     def __init__(self, confidence=0.25, min_child_leaf=2, num_folds=3,
                  reduced_error_pruning=False, no_subtree_raising=False, binary_splits=False):
@@ -56,7 +60,7 @@ class WekaJ48:
             # self.model.build_classifier(train_filtered)
             self.model.build_classifier(train)
         except Exception as e:
-            raise e
+            raise WekaException from e
         finally:
             os.remove(train_arff.name)
         return
@@ -80,7 +84,7 @@ class WekaJ48:
                 dist = self.model.distribution_for_instance(inst)
                 dist_array.append(dist)
         except Exception as e:
-            raise e
+            raise WekaException from e
         finally:
             os.remove(valid_arff.name)
         if proba:
@@ -121,7 +125,7 @@ class WekaJ48:
                 fp.write(arff_dump)
         except Exception as e:
             os.remove(tmp.name)
-            raise e
+            raise WekaException from e
         return tmp
 
 
@@ -156,7 +160,7 @@ class WekaRIPPER:
             # self.model.build_classifier(train_filtered)
             self.model.build_classifier(train)
         except Exception as e:
-            raise e
+            raise WekaException from e
         finally:
             os.remove(train_arff.name)
         return
@@ -179,7 +183,7 @@ class WekaRIPPER:
                 dist = self.model.distribution_for_instance(inst)
                 dist_array.append(dist)
         except Exception as e:
-            raise e
+            raise WekaException from e
         finally:
             os.remove(valid_arff.name)
         if proba:
@@ -220,7 +224,7 @@ class WekaRIPPER:
                 fp.write(arff_dump)
         except Exception as e:
             os.remove(tmp.name)
-            raise e
+            raise WekaException from e
         return tmp
 
 
@@ -266,7 +270,7 @@ class WekaPART:
             # self.model.build_classifier(train_filtered)
             self.model.build_classifier(train)
         except Exception as e:
-            raise e
+            raise WekaException from e
         finally:
             os.remove(train_arff.name)
         return
@@ -289,7 +293,7 @@ class WekaPART:
                 dist = self.model.distribution_for_instance(inst)
                 dist_array.append(dist)
         except Exception as e:
-            raise e
+            raise WekaException from e
         finally:
             os.remove(valid_arff.name)
         if proba:
@@ -330,7 +334,7 @@ class WekaPART:
                 fp.write(arff_dump)
         except Exception as e:
             os.remove(tmp.name)
-            raise e
+            raise WekaException from e
         return tmp
 
 
@@ -385,12 +389,13 @@ def optuna_weka_j48(X, y):
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020, stratify=y)
         j48.fit(x_train, y_train)
         y_pred = j48.predict(x_valid)
-        acc = accuracy_score(y_valid, y_pred)
-        return acc
+        f1 = f1_score(y_valid, y_pred)
+        return f1
     sampler = optuna.samplers.TPESampler(seed=2020)
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+                   catch=(WekaException,))
     return study.best_params
 
 
@@ -436,12 +441,13 @@ def optuna_weka_ripper(X, y):
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020, stratify=y)
         ripper.fit(x_train, y_train)
         y_pred = ripper.predict(x_valid)
-        acc = accuracy_score(y_valid, y_pred)
-        return acc
+        f1 = f1_score(y_valid, y_pred)
+        return f1
     sampler = optuna.samplers.TPESampler(seed=2020)
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+                   catch=(WekaException,))
     return study.best_params
 
 
@@ -506,12 +512,13 @@ def optuna_weka_part(X, y):
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=2020, stratify=y)
         part.fit(x_train, y_train)
         y_pred = part.predict(x_valid)
-        acc = accuracy_score(y_valid, y_pred)
-        return acc
+        f1 = f1_score(y_valid, y_pred)
+        return f1
     sampler = optuna.samplers.TPESampler(seed=2020)
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback])
+    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+                   catch=(WekaException,))
     return study.best_params
 
 
@@ -543,8 +550,8 @@ def run_experiment(dataset_name):
         j48.fit(x_train, y_train)
         y_pred = j48.predict(x_valid)
         j48_end = timer()
-        acc = accuracy_score(y_valid, y_pred)
-        time_print('j48 fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        f1 = f1_score(y_valid, y_pred)
+        time_print('j48 fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -573,8 +580,8 @@ def run_experiment(dataset_name):
         ripper.fit(x_train, y_train)
         y_pred = ripper.predict(x_valid)
         ripper_end = timer()
-        acc = accuracy_score(y_valid, y_pred)
-        time_print('ripper fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        f1 = f1_score(y_valid, y_pred)
+        time_print('ripper fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),
@@ -602,8 +609,8 @@ def run_experiment(dataset_name):
         part.fit(x_train, y_train)
         y_pred = part.predict(x_valid)
         part_end = timer()
-        acc = accuracy_score(y_valid, y_pred)
-        time_print('part fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        f1 = f1_score(y_valid, y_pred)
+        time_print('part fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
         vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall': recall_score(y_valid, y_pred, average=metric_averaging),

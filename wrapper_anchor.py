@@ -73,8 +73,8 @@ def run_experiment(dataset_name):
         dt.fit(x_train, y_train)
         y_pred = dt.predict(x_valid)
         dt_fit_predict_end = timer()
-        acc = accuracy_score(y_valid, y_pred)
-        time_print('dt fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        f1 = f1_score(y_valid, y_pred)
+        time_print('dt fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
         vanilla_metrics = {'accuracy':  accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall':    recall_score(y_valid, y_pred, average=metric_averaging),
@@ -141,8 +141,8 @@ def run_experiment(dataset_name):
         rf.fit(x_train, y_train)
         y_pred = rf.predict(x_valid)
         rf_fit_predict_end = timer()
-        acc = accuracy_score(y_valid, y_pred)
-        time_print('rf fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        f1 = f1_score(y_valid, y_pred)
+        time_print('rf fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
         vanilla_metrics = {'accuracy':  accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall':    recall_score(y_valid, y_pred, average=metric_averaging),
@@ -233,8 +233,8 @@ def run_experiment(dataset_name):
             y_pred = (lgb_model.predict(x_valid) > 0.5).astype(int)
         lgb_fit_predict_end = timer()
 
-        acc = accuracy_score(y_valid, y_pred)
-        time_print('lgb fold {} acc {}'.format(f_idx+1, round(acc, 2)))
+        f1 = f1_score(y_valid, y_pred)
+        time_print('lgb fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
         vanilla_metrics = {'accuracy':  accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
                            'recall':    recall_score(y_valid, y_pred, average=metric_averaging),
