@@ -395,7 +395,7 @@ def optuna_weka_j48(X, y):
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
-                   catch=(WekaException,))
+                   catch=(WekaException, optuna.exceptions.TrialPruned))
     return study.best_params
 
 
@@ -447,7 +447,7 @@ def optuna_weka_ripper(X, y):
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
-                   catch=(WekaException,))
+                   catch=(WekaException, optuna.exceptions.TrialPruned))
     return study.best_params
 
 
@@ -518,7 +518,7 @@ def optuna_weka_part(X, y):
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
-                   catch=(WekaException,))
+                   catch=(WekaException, optuna.exceptions.TrialPruned))
     return study.best_params
 
 
