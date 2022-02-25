@@ -29,6 +29,10 @@ def anchor_explain_single(row, explainer, model, threshold=.95, random_state=SEE
 
 
 def run_experiment(dataset_name):
+    # this will run out of RAM with 64GB or below, so skip
+    if dataset_name == 'census':
+        return
+
     exp_dir = 'tree_asp/tmp/journal/local'
     log_json = os.path.join(exp_dir, 'anchor.json')
     anchor_n_instances = 100
@@ -203,9 +207,6 @@ def run_experiment(dataset_name):
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
             out_log_json.write(json.dumps(rf_dict) + '\n')
 
-        # this will run out of RAM with 64GB or below, so skip
-        if dataset_name == 'census':
-            continue
         lgb_start = timer()
         time_print('lgb optuna start...')
         lgb_train = lgb.Dataset(data=x_train,
