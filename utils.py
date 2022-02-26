@@ -48,3 +48,24 @@ def load_data(dataset_name):
     else:
         raise ValueError('unrecognized dataset name: {}'.format(dataset_name))
     return dataset
+
+
+def list_data():
+    datasets = [
+        'adult', 'autism', 'breast', 'cars', 'census', 'compas',
+        'credit_australia', 'credit_german', 'credit_taiwan', 'heart',
+        'ionosphere', 'kidney', 'krvskp', 'voting']
+    to_df = []
+    for d in datasets:
+        data_X, data_y = load_data(d)  # pd.DataFrame
+        to_df.append({
+            'dataset': d,
+            'num_instances': int(data_X.shape[0]),
+            'num_features': int(data_X.shape[1]),
+            'num_features_numerical': len(data_X._get_numeric_data().columns),
+            'num_features_categorical': len(data_X.select_dtypes(include=['category']).columns),
+            'label_0': int(data_y.value_counts()[0]),
+            'label_1': int(data_y.value_counts()[1]),
+            'label_ratio_1': round(data_y.value_counts()[1] / len(data_y.values),2)
+        })
+    print(json.dumps(to_df, indent=4))
