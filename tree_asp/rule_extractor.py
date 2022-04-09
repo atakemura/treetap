@@ -10,7 +10,7 @@ from sklearn.utils.validation import check_is_fitted
 
 from copy import deepcopy
 from collections import defaultdict
-from functools import reduce
+from functools import reduce, partial
 from multiprocessing import Pool
 from psutil import cpu_count
 from operator import and_
@@ -582,13 +582,13 @@ class RFGlobalRuleExtractor:
 
         # extract rules for all trees
         rules = {}
-        for t_idx, tree in enumerate(model.estimators_):
-            try:
-                _, rules[t_idx] = self.export_text_rule_tree(tree, X, feature_names)
-            except OnlyLeafFoundException:
-                time_print('[RFGlobalRuleExtractor]\tskipping leaf only tree')
-                continue
-        rules = self.export_text_rule_rf(rules, X, y)
+        # parallel version
+        with Pool(processes=self.num_cores) as pool:
+            _tmp_rules = pool.map(partial(self.export_text_rule_tree, train_data=X, feature_names=feature_names),
+                                  model.estimators_)
+        for t_idx, tree in enumerate(_tmp_rules):
+            _, rules[t_idx] = _tmp_rules[t_idx]
+        rules = self.export_text_rule_rf_parallel(rules, X, y)
 
         # simple rule merging
         printable_dicts = self.asp_dict_from_rules(rules)
@@ -602,6 +602,16 @@ class RFGlobalRuleExtractor:
 
     def transform(self, X, y=None, **params):
         return self.asp_fact_str
+
+    def export_text_rule_rf_parallel(self, tree_rules, X, y):
+        _tmp_rules = tree_rules
+        rules = {}
+        with Pool(processes=self.num_cores) as pool:
+            mod_rules = pool.starmap(self.export_text_rule_rf_sub,
+                                    ((t_rules, X, y) for t_rules in _tmp_rules.values()))
+        for t_idx, tree in enumerate(mod_rules):
+            rules[t_idx] = mod_rules[t_idx]
+        return rules
 
     def export_text_rule_tree(self, decision_tree, train_data, feature_names=None):
         """
@@ -634,7 +644,7 @@ class RFGlobalRuleExtractor:
             path_leaf = []
             self.find_path_recursive(0, path_leaf, leaf, children_left, children_right)
             if len(np.unique(path_leaf)) == 1:
-                raise OnlyLeafFoundException
+                continue
             paths[leaf] = np.unique(np.sort(path_leaf))
         # get rules
         rules = {}
@@ -756,6 +766,58 @@ class RFGlobalRuleExtractor:
                                                    average=self.metric_averaging)
                 path_rule['f1_score'] = f1_score(y, y_pred, pos_label=path_rule['predict_class'],
                                                  average=self.metric_averaging)
+        return rules
+
+    def export_text_rule_rf_sub(self, tree_rules: dict, X, y):
+        rules = tree_rules
+        cond_cache = dict()
+
+        # adding rule statistics
+        for path_rule in rules.values():
+            _tmp_dfs = []
+            for rule_key in path_rule.keys():
+                # skip non-conditions
+                if rule_key in self.non_rule_keys:
+                    continue
+                # collect conditions and boolean mask
+                else:
+                    if rule_key in cond_cache:
+                        _tmp_mask = cond_cache[rule_key]
+                    elif LT_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(LT_PATTERN, 1)
+                        _tmp_mask = getattr(X[_rule_field], 'lt')(float(_rule_threshold))
+                    elif LE_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(LE_PATTERN, 1)
+                        _tmp_mask = getattr(X[_rule_field], 'le')(float(_rule_threshold))
+                    elif GT_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(GT_PATTERN, 1)
+                        _tmp_mask = getattr(X[_rule_field], 'gt')(float(_rule_threshold))
+                    elif GE_PATTERN in rule_key:
+                        _rule_field, _rule_threshold = rule_key.rsplit(GE_PATTERN, 1)
+                        _tmp_mask = getattr(X[_rule_field], 'ge')(float(_rule_threshold))
+                    else:
+                        raise ValueError('No key found')
+                    _tmp_dfs.append(_tmp_mask)
+            # for a path that has length = 1 (straight to leaf)
+            if len(_tmp_dfs) == 0:
+                continue
+            # reduce boolean mask
+            mask_res = reduce(and_, _tmp_dfs)
+
+            path_rule['predict_class'] = 1
+            y_pred = np.zeros(y.shape)
+            y_pred[mask_res] = path_rule['predict_class']
+            path_rule['condition_length'] = len(_tmp_dfs)
+            path_rule['frequency_am'] = len(y[mask_res]) / len(y)  # anti-monotonic
+            path_rule['frequency'] = len(y[mask_res])  # coverage
+            path_rule['error_rate'] = 1 - accuracy_score(y, y_pred)
+            path_rule['accuracy'] = accuracy_score(y, y_pred)
+            path_rule['precision'] = precision_score(y, y_pred, pos_label=path_rule['predict_class'],
+                                                     average=self.metric_averaging)
+            path_rule['recall'] = recall_score(y, y_pred, pos_label=path_rule['predict_class'],
+                                               average=self.metric_averaging)
+            path_rule['f1_score'] = f1_score(y, y_pred, pos_label=path_rule['predict_class'],
+                                             average=self.metric_averaging)
         return rules
 
     def asp_dict_from_rules(self, rules: dict):
@@ -1344,6 +1406,8 @@ class LGBMGlobalRuleExtractor:
         if classes is None:
             classes = [0, 1]
         rules = t_rules
+        cond_cache = dict()
+
         for path_rule in rules.values():
             _tmp_dfs = []
             for rule_key in path_rule.keys():
@@ -1352,34 +1416,36 @@ class LGBMGlobalRuleExtractor:
                     continue
                 # collect conditions and boolean mask
                 else:
-                    # TODO: cache result for better performance
-                    if LT_PATTERN in rule_key:
+                    if rule_key in cond_cache:
+                        _tmp_mask = cond_cache[rule_key]
+                    elif LT_PATTERN in rule_key:
                         _rule_field, _rule_threshold = rule_key.rsplit(LT_PATTERN, 1)
-                        _tmp_dfs.append(getattr(X[_rule_field], 'lt')(float(_rule_threshold)))
+                        _tmp_mask = getattr(X[_rule_field], 'lt')(float(_rule_threshold))
                     elif LE_PATTERN in rule_key:
                         _rule_field, _rule_threshold = rule_key.rsplit(LE_PATTERN, 1)
-                        _tmp_dfs.append(getattr(X[_rule_field], 'le')(float(_rule_threshold)))
+                        _tmp_mask = getattr(X[_rule_field], 'le')(float(_rule_threshold))
                     elif GT_PATTERN in rule_key:
                         _rule_field, _rule_threshold = rule_key.rsplit(GT_PATTERN, 1)
-                        _tmp_dfs.append(getattr(X[_rule_field], 'gt')(float(_rule_threshold)))
+                        _tmp_mask = getattr(X[_rule_field], 'gt')(float(_rule_threshold))
                     elif GE_PATTERN in rule_key:
                         _rule_field, _rule_threshold = rule_key.rsplit(GE_PATTERN, 1)
-                        _tmp_dfs.append(getattr(X[_rule_field], 'ge')(float(_rule_threshold)))
+                        _tmp_mask = getattr(X[_rule_field], 'ge')(float(_rule_threshold))
                     elif EQ_PATTERN in rule_key:
                         _rule_field, _rule_threshold = rule_key.rsplit(EQ_PATTERN, 1)
                         inverse_map = dict(enumerate(X[_rule_field].cat.categories))
                         # rule threshold in this case can be like '0||1||2'
                         _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
-                        _tmp_dfs.append(getattr(X[_rule_field], 'isin')(_cat_th))
+                        _tmp_mask = getattr(X[_rule_field], 'isin')(_cat_th)
                     elif NEQ_PATTERN in rule_key:
                         _rule_field, _rule_threshold = rule_key.rsplit(NEQ_PATTERN, 1)
                         inverse_map = dict(enumerate(X[_rule_field].cat.categories))
                         # rule threshold in this case can be like '0||1||2'
                         _cat_th = [inverse_map[int(x)] for x in _rule_threshold.split('||', -1)]
                         # note the bitwise complement ~
-                        _tmp_dfs.append(~ getattr(X[_rule_field], 'isin')(_cat_th))
+                        _tmp_mask = ~ getattr(X[_rule_field], 'isin')(_cat_th)
                     else:
                         raise ValueError('No key found')
+                    _tmp_dfs.append(_tmp_mask)
             # reduce boolean mask
             mask_res = reduce(and_, _tmp_dfs)
 
