@@ -52,8 +52,8 @@ def optuna_decision_tree(X, y, random_state=2020):
     def objective(trial: optuna.Trial):
         # numeric: max_depth, min_samples_split, min_samples_leaf, min_weight_fraction_leaf
         # choice: criterion(gini, entropy)
-        params = {'max_depth': trial.suggest_int('max_depth', 2, 15),
-                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 1e-5, 0.2),
+        params = {'max_depth': trial.suggest_int('max_depth', 2, 9),
+                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 1e-3, 0.2),
                   'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.01),
                   'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy']),
                   }
@@ -69,9 +69,8 @@ def optuna_decision_tree(X, y, random_state=2020):
     sampler = optuna.samplers.TPESampler(seed=random_state)
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.enqueue_trial({'max_depth': 5, 'min_samples_leaf': 1e-5, 'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
-    study.enqueue_trial({'max_depth': 10, 'min_samples_leaf': 1e-5, 'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
-    study.enqueue_trial({'max_depth': 15, 'min_samples_leaf': 1e-5, 'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
+    study.enqueue_trial({'max_depth': 5, 'min_samples_leaf': 1e-3, 'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
+    study.enqueue_trial({'max_depth': 9, 'min_samples_leaf': 1e-3, 'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
                    catch=(ModelException, optuna.exceptions.TrialPruned))
     return study.best_params
@@ -113,8 +112,8 @@ def optuna_random_forest(X, y, random_state=2020):
         # numeric: n_estimators, max_depth, min_samples_split, min_samples_leaf, min_weight_fraction_leaf
         # choice: criterion(gini, entropy)
         params = {'n_estimators': trial.suggest_int('n_estimators', 50, 500, 10),
-                  'max_depth': trial.suggest_int('max_depth', 2, 15),
-                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 1e-5, 0.2),
+                  'max_depth': trial.suggest_int('max_depth', 2, 9),
+                  'min_samples_leaf': trial.suggest_float('min_samples_leaf', 1e-3, 0.2),
                   'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5, step=0.01),
                   'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy'])
                   }
@@ -130,11 +129,13 @@ def optuna_random_forest(X, y, random_state=2020):
     sampler = optuna.samplers.TPESampler(seed=random_state)
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.enqueue_trial({'n_estimators': 100, 'max_depth': 5, 'min_samples_leaf': 1e-5,
+    study.enqueue_trial({'n_estimators': 100, 'max_depth': 5, 'min_samples_leaf': 1e-3,
                          'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
-    study.enqueue_trial({'n_estimators': 100, 'max_depth': 10, 'min_samples_leaf': 1e-5,
+    study.enqueue_trial({'n_estimators': 200, 'max_depth': 5, 'min_samples_leaf': 1e-3,
                          'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
-    study.enqueue_trial({'n_estimators': 100, 'max_depth': 15, 'min_samples_leaf': 1e-5,
+    study.enqueue_trial({'n_estimators': 100, 'max_depth': 9, 'min_samples_leaf': 1e-3,
+                         'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
+    study.enqueue_trial({'n_estimators': 200, 'max_depth': 9, 'min_samples_leaf': 1e-3,
                          'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
                    catch=(ModelException, optuna.exceptions.TrialPruned))
@@ -175,9 +176,9 @@ def optuna_lgb(X, y, static_params, random_state=2020):
 
     def objective(trial: optuna.Trial):
         params = {'learning_rate': trial.suggest_loguniform('learning_rate', 0.01, 0.2),
-                  'max_depth': trial.suggest_int('max_depth', 2, 15),
+                  'max_depth': trial.suggest_int('max_depth', 2, 9),
                   'num_leaves': trial.suggest_int('num_leaves', 2, 100),
-                  'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 500),
+                  'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 500, 10),
                   'min_child_weight': trial.suggest_loguniform('min_child_weight', 1e-3, 1e+1),
                   'feature_fraction': trial.suggest_uniform('feature_fraction', 0.05, 1.0),
                   'subsample': trial.suggest_uniform('subsample', 0.2, 1.0),
@@ -188,7 +189,7 @@ def optuna_lgb(X, y, static_params, random_state=2020):
         all_params = {**params, **static_params}
 
         pruning_callback = optuna.integration.LightGBMPruningCallback(trial, all_params['metric'], valid_name='valid')
-        num_boost_round = 1000
+        num_boost_round = 500
         early_stopping = 30
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state, stratify=y)
 
@@ -213,6 +214,12 @@ def optuna_lgb(X, y, static_params, random_state=2020):
     sampler = optuna.samplers.TPESampler(seed=random_state)
     study = optuna.create_study(direction='minimize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
+    study.enqueue_trial({'learning_rate': 0.1, 'max_depth': 5, 'num_leaves': 50, 'min_data_in_leaf': 10,
+                         'min_child_weight': 0.001, 'feature_fraction': 1.0, 'subsample': 1.0, 'subsample_freq': 0,
+                         'lambda_l1': 0.1, 'lambda_l2': 0.1})
+    study.enqueue_trial({'learning_rate': 0.1, 'max_depth': 9, 'num_leaves': 50, 'min_data_in_leaf': 10,
+                         'min_child_weight': 0.001, 'feature_fraction': 1.0, 'subsample': 1.0, 'subsample_freq': 0,
+                         'lambda_l1': 0.1, 'lambda_l2': 0.1})
     study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
                    catch=(ModelException, optuna.exceptions.TrialPruned))
     return study.best_params
