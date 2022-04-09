@@ -20,7 +20,7 @@ from utils import load_data
 
 
 SEED = 2020
-
+FAILED_ATTEMPTS = []
 
 def run_experiment(dataset_name):
     X, y = load_data(dataset_name)
@@ -242,6 +242,9 @@ def run_one_round(dataset_name,
         if verbose:
             with open(log_json_quali, 'a', encoding='utf-8') as out_log_quali:
                 out_log_quali.write(json.dumps(out_quali)+'\n')
+        if (out_quali['rules']) == 0:
+            FAILED_ATTEMPTS.append(f'{dataset_name}_{fold}')
+            time_print(f'FAILED 0 rules {dataset_name}_{fold}\t\t{o.stdout.decode()}')
 
     time_print('completed {} from start'.format(round(timer() - start)))
 
@@ -272,3 +275,4 @@ if __name__ == '__main__':
     end_time = timer()
     e = end_time - start_time
     time_print('Time elapsed(s): {}'.format(e))
+    # time_print(f'FAILED: {FAILED_ATTEMPTS}')
