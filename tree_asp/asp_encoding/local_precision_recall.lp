@@ -24,7 +24,7 @@
 1 { selected(I) :  valid(I) } 3.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% User Defined Local Constraints
+%%% User Defined Local Constraints and Selection Criteria
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % rule is not invalid
 valid(I) :- rule(I), not invalid(I).

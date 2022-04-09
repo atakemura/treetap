@@ -28,7 +28,7 @@
 1 { selected(I) :  predict_class(I, K), valid(I) } 5 :- class(K).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% User Defined Local Constraints
+%%% User Defined Local Constraints and Selection Criteria
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % rule is not invalid
 valid(I) :- rule(I), not invalid(I).
@@ -37,16 +37,16 @@ valid(I) :- rule(I), not invalid(I).
 invalid(I) :- size(I,S), S > 10, rule(I).
 
 % inaccurate rules
-invalid(I) :- error_rate(I,E), E > 50, rule(I).
+invalid(I) :- error_rate(I,E), E > 70, rule(I).
 
 % low precision rules
-invalid(I) :- precision(I,P), P < 10, rule(I).
+invalid(I) :- precision(I,P), P < 2, rule(I).
 
 % low recall rules
-invalid(I) :- recall(I,R), R < 10, rule(I).
+invalid(I) :- recall(I,R), R < 2, rule(I).
 
 % low coverage rules
-invalid(I) :- support(I,Sp), Sp < 5, rule(I).
+invalid(I) :- support(I,Sp), Sp < 2, rule(I).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Dominance Relation Definitions
