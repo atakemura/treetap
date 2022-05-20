@@ -214,6 +214,9 @@ def run_experiment(dataset_name):
                 'optuna_time': rfit_optuna_end - rfit_start,
                 'fit_predict_time': rfit_end - rfit_optuna_end
             }
+            # saving rule table to csv
+            rfit_fname = os.path.join(exp_dir, f'rulefit_{dataset_name}_{f_idx}.csv')
+            rules.to_csv(rfit_fname, index=False, header=True)
 
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
             out_log_json.write(json.dumps(dt_dict) + '\n')
