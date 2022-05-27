@@ -115,6 +115,7 @@ def run_one_round(dataset_name,
         le_start = timer()
         time_print('\tlocal explanation enc {} {}/{}'.format(enc_k, enc_idx + 1, len(encoding_dict)))
         le_score_store = {}
+        le_rule_store = {}
 
         for s_idx, v_idx in enumerate(sample_idx):
             if ((s_idx+1) % 10) == 0:
@@ -143,6 +144,7 @@ def run_one_round(dataset_name,
                 answers, clasp_info = None, None
 
             scores = []
+            local_rules = []
             if clingo_completed and clasp_info is not None:
                 for ans_idx, ans_set in enumerate(answers):
                     if not ans_set.is_optimal:
@@ -167,7 +169,9 @@ def run_one_round(dataset_name,
                     rule_pred_metrics = {'local_coverage': cov,
                                          'local_precision': prc}
                     scores.append((ans_idx, rule_pred_metrics))
+                    local_rules.append((ans_idx, [f'{r.predict_class} IF {r.rule_str}' for r in rules]))
             le_score_store[s_idx] = scores
+            le_rule_store[s_idx] = local_rules
 
         le_end = timer()
         time_print('local explanation completed {} seconds | {} from start'.format(round(le_end - le_start),
@@ -201,7 +205,8 @@ def run_one_round(dataset_name,
             'vanilla_metrics': vanilla_metrics,
             'local_encoding': enc_k,
             'local_encoding_file': enc_v,
-            'local_explanation_scores': le_score_store
+            'local_explanation_scores': le_score_store,
+            'local_explanation_rules': le_rule_store
         }
 
         with open(le_log_json, 'a', encoding='utf-8') as out_log_json:

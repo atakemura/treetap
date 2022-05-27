@@ -93,6 +93,7 @@ def run_experiment(dataset_name):
         dt_train_prcs = []
         dt_valid_covs = []
         dt_valid_prcs = []
+        dt_anchor_rules = []
 
         mat_x_valid = x_valid.sample(anchor_n_instances, replace=True, random_state=SEED).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
@@ -106,6 +107,7 @@ def run_experiment(dataset_name):
             dt_train_prcs.append(ae.precision())
             dt_valid_covs.append(cov)
             dt_valid_prcs.append(prc)
+            dt_anchor_rules.append(' AND '.join(ae.names()))
 
         dt_anchor_end = timer()
 
@@ -117,6 +119,7 @@ def run_experiment(dataset_name):
                           'anchor_train_coverage':      dt_train_covs,
                           'anchor_valid_precision':     dt_valid_prcs,
                           'anchor_valid_coverage':      dt_valid_covs,
+                          'anchor_rules':               dt_anchor_rules
                           }
 
         dt_end = timer()
@@ -161,6 +164,7 @@ def run_experiment(dataset_name):
         rf_train_prcs = []
         rf_valid_covs = []
         rf_valid_prcs = []
+        rf_anchor_rules = []
 
         mat_x_valid = x_valid.sample(anchor_n_instances, replace=True, random_state=SEED).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
@@ -174,6 +178,7 @@ def run_experiment(dataset_name):
             rf_train_prcs.append(ae.precision())
             rf_valid_covs.append(cov)
             rf_valid_prcs.append(prc)
+            rf_anchor_rules.append(' AND '.join(ae.names()))
 
         rf_anchor_end = timer()
 
@@ -185,6 +190,7 @@ def run_experiment(dataset_name):
                           'anchor_train_coverage':      rf_train_covs,
                           'anchor_valid_precision':     rf_valid_prcs,
                           'anchor_valid_coverage':      rf_valid_covs,
+                          'anchor_rules':               rf_anchor_rules
                           }
 
         rf_end = timer()
@@ -250,6 +256,7 @@ def run_experiment(dataset_name):
         lgb_train_prcs = []
         lgb_valid_covs = []
         lgb_valid_prcs = []
+        lgb_anchor_rules = []
 
         mat_x_valid = x_valid.sample(anchor_n_instances, replace=True, random_state=SEED).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
@@ -266,6 +273,7 @@ def run_experiment(dataset_name):
             lgb_train_prcs.append(ae.precision())
             lgb_valid_covs.append(cov)
             lgb_valid_prcs.append(prc)
+            lgb_anchor_rules.append(' AND '.join(ae.names()))
 
         lgb_anchor_end = timer()
         lgb_end = timer()
@@ -278,6 +286,7 @@ def run_experiment(dataset_name):
                           'anchor_train_coverage':      lgb_train_covs,
                           'anchor_valid_precision':     lgb_valid_prcs,
                           'anchor_valid_coverage':      lgb_valid_covs,
+                          'anchor_rules':               lgb_anchor_rules
                           }
 
         lgb_dict = {
@@ -300,19 +309,19 @@ def run_experiment(dataset_name):
 
 if __name__ == '__main__':
     for data in [
-        # 'autism',
-        # 'breast',
-        # 'cars',
-        # 'credit_australia',
-        # 'heart',
-        # 'ionosphere',
-        # 'kidney',
-        # 'krvskp',
-        # 'voting',
-        # 'credit_taiwan',
-        # 'credit_german',
-        # 'adult',
-        # 'compas',
+        'autism',
+        'breast',
+        'cars',
+        'credit_australia',
+        'heart',
+        'ionosphere',
+        'kidney',
+        'krvskp',
+        'voting',
+        'credit_taiwan',
+        'credit_german',
+        'adult',
+        'compas',
         'census',
     ]:
         time_print('='*40 + data + '='*40)
