@@ -34,6 +34,7 @@ The easiest way to reproduce the experiments are:
 * attach to the container e.g., `docker exec -it [CONTAINER NAME] /bin/bash`
 * `su - user` (by default it will log you in as root)
 * add Python, conda etc. to PATH `export PATH=/opt/conda/bin:/opt/conda/condabin:/opt/conda/bin:/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH`
+* Before running the scripts below, create empty directories with paths mentioned in the scripts, e.g., `mkdir -p tmp/journal/local tmp/journal/global` etc. If you see a FileNotFoundError during experiments this is the likely cause.
 * `bash run_all.sh` or run individual experiments like `python run_benchmark.py` etc.
 
 # Dependencies
@@ -51,6 +52,10 @@ Additionally, if you wish to reproduce the experiments, you need the following:
 * Weka (including Python package, requires OpenJDK11)
 * optuna
 * RuleFit
+
+# Known Issues
+
+You may have difficult time building the container and running the scripts on M1/M2-based Macs. The scripts have only been tested on a standard Ubuntu machine and Intel Mac.
 
 # Publications/Citations
 n/a.
