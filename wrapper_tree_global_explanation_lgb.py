@@ -63,7 +63,9 @@ def run_one_round(dataset_name,
     lgb_start = timer()
     time_print('lgb-training start')
     if os.path.exists(model_path):
+        lgb_fit_start = timer()
         model = lgb.Booster(model_file=model_path)
+        lgb_fit_end = timer()
         with open(param_path, 'rb') as param_in:
             hyperparams = pickle.load(param_in)
     else:
@@ -82,10 +84,12 @@ def run_one_round(dataset_name,
         }
         best_params = optuna_lgb(x_train, y_train, static_params)
         hyperparams = {**static_params, **best_params}
+        lgb_fit_start = timer()
         model = lgb.train(params=hyperparams,
                           train_set=lgb_train,
                           valid_sets=[lgb_valid],
                           valid_names=['valid'], num_boost_round=1000, early_stopping_rounds=50, verbose_eval=False)
+        lgb_fit_end = timer()
         model.save_model(model_path)
         with open(param_path, 'wb') as param_out:
             pickle.dump(hyperparams, param_out, protocol=pickle.HIGHEST_PROTOCOL)
@@ -156,6 +160,7 @@ def run_one_round(dataset_name,
             py_rule_start = timer()
             time_print('py rule evaluation start')
             scores = []
+            fidelity_scores = []
             for ans_idx, ans_set in enumerate(answers):
                 if not ans_set.is_optimal:
                     continue
@@ -174,6 +179,15 @@ def run_one_round(dataset_name,
                                      'f1': f1_score(y_valid, rule_pred, average=metric_averaging),
                                      'auc': roc_auc_score(y_valid, rule_pred)}
                 scores.append((ans_idx, rule_pred_metrics))
+
+                # fidelity metrics - agreement with original classifier
+                fidelity_metrics = {'accuracy': accuracy_score(lgb_vanilla_pred, rule_pred),
+                                    'precision': precision_score(lgb_vanilla_pred, rule_pred, average=metric_averaging),
+                                    'recall': recall_score(lgb_vanilla_pred, rule_pred, average=metric_averaging),
+                                    'f1': f1_score(lgb_vanilla_pred, rule_pred, average=metric_averaging),
+                                    'auc': roc_auc_score(lgb_vanilla_pred, rule_pred)}
+                fidelity_scores.append((ans_idx, fidelity_metrics))
+
             py_rule_end = timer()
             time_print('py rule evaluation completed {} seconds | {} from start'.format(
                 round(py_rule_end - py_rule_start), round(py_rule_end - start)))
@@ -201,6 +215,7 @@ def run_one_round(dataset_name,
                 # timer
                 'py_total_time': end - start,
                 'py_lgb_time': lgb_end - lgb_start,
+                'py_lgb_excluding_optuna_time': lgb_fit_end - lgb_fit_start,
                 'py_ext_time': ext_end - ext_start,
                 'py_clingo_time': clingo_end - clingo_start,
                 'py_rule_time': py_rule_end - py_rule_start,
@@ -210,6 +225,7 @@ def run_one_round(dataset_name,
                 'global_encoding': enc_k,
                 'global_encoding_file': enc_v,
                 'rule_metrics': scores,
+                'fidelity_metrics': fidelity_scores
             }
         else:
             out_dict = {
@@ -235,6 +251,7 @@ def run_one_round(dataset_name,
                 # timer
                 'py_total_time': end - start,
                 'py_lgb_time': lgb_end - lgb_start,
+                'py_lgb_excluding_optuna_time': lgb_fit_end - lgb_fit_start,
                 'py_ext_time': ext_end - ext_start,
                 'py_clingo_time': clingo_end - clingo_start,
                 'py_rule_time': 0,

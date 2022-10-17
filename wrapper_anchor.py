@@ -73,8 +73,10 @@ def run_experiment(dataset_name):
         time_print('dt optuna start...')
         dt_best_params = optuna_decision_tree(x_train, y_train)
         dt_optuna_end = timer()
+        dt_fit_start = timer()
         dt = DecisionTreeClassifier(**dt_best_params, random_state=SEED)
         dt.fit(x_train, y_train)
+        dt_fit_end = timer()
         y_pred = dt.predict(x_valid)
         dt_fit_predict_end = timer()
         f1 = f1_score(y_valid, y_pred)
@@ -132,6 +134,7 @@ def run_experiment(dataset_name):
             'vanilla_metrics': vanilla_metrics,
             'anchor_metrics': anchor_metrics,
             'total_time': dt_end - dt_start,
+            'fit_excluding_optuna_time': dt_fit_end - dt_fit_start,
             'optuna_time': dt_optuna_end - dt_start,
             'fit_predict_time': dt_fit_predict_end - dt_optuna_end,
             'anchor_time': dt_anchor_end - dt_anchor_start,
@@ -144,8 +147,10 @@ def run_experiment(dataset_name):
         time_print('rf optuna start...')
         rf_best_params = optuna_random_forest(x_train, y_train)
         rf_optuna_end = timer()
+        rf_fit_start = timer()
         rf = RandomForestClassifier(**rf_best_params, n_jobs=NUM_CPU, random_state=SEED)
         rf.fit(x_train, y_train)
+        rf_fit_end = timer()
         y_pred = rf.predict(x_valid)
         rf_fit_predict_end = timer()
         f1 = f1_score(y_valid, y_pred)
@@ -205,6 +210,7 @@ def run_experiment(dataset_name):
             'vanilla_metrics': vanilla_metrics,
             'anchor_metrics': anchor_metrics,
             'total_time': rf_end - rf_start,
+            'fit_excluding_optuna': rf_fit_end - rf_fit_start,
             'optuna_time': rf_optuna_end - rf_start,
             'fit_predict_time': rf_fit_predict_end - rf_optuna_end,
             'anchor_time': rf_anchor_end - rf_anchor_start,
@@ -230,10 +236,12 @@ def run_experiment(dataset_name):
         lgb_best_params = optuna_lgb(x_train, y_train, static_params)
         lgb_optuna_end = timer()
         lgb_hyperparams = {**static_params, **lgb_best_params}
+        lgb_fit_start = timer()
         lgb_model = lgb.train(params=lgb_hyperparams,
                               train_set=lgb_train,
                               valid_sets=[lgb_valid],
                               valid_names=['valid'], num_boost_round=1000, early_stopping_rounds=50, verbose_eval=False)
+        lgb_fit_end = timer()
         if num_classes > 2:
             y_pred = np.argmax(lgb_model.predict(x_valid), axis=1)
         else:
@@ -298,6 +306,7 @@ def run_experiment(dataset_name):
             'vanilla_metrics': vanilla_metrics,
             'anchor_metrics': anchor_metrics,
             'total_time': lgb_end - lgb_start,
+            'fit_excluding_optuna': lgb_fit_end - lgb_fit_start,
             'optuna_time': lgb_optuna_end - lgb_start,
             'fit_predict_time': lgb_fit_predict_end - lgb_optuna_end,
             'anchor_time': lgb_anchor_end - lgb_anchor_start

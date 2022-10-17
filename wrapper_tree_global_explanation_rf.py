@@ -69,6 +69,7 @@ def run_one_round(dataset_name,
 
     rf_start = timer()
     best_params = optuna_random_forest(x_train, y_train)
+    rf_fit_start = timer()
     rf = RandomForestClassifier(**best_params, random_state=SEED, n_jobs=NUM_CPU)
     rf.fit(x_train, y_train)
     rf_end = timer()
@@ -122,6 +123,7 @@ def run_one_round(dataset_name,
             py_rule_start = timer()
             time_print('py rule evaluation start')
             scores = []
+            fidelity_scores = []
             for ans_idx, ans_set in enumerate(answers):
                 if not ans_set.is_optimal:
                     continue
@@ -140,6 +142,15 @@ def run_one_round(dataset_name,
                                      'f1': f1_score(y_valid, rule_pred, average=metric_averaging),
                                      'auc': roc_auc_score(y_valid, rule_pred)}
                 scores.append((ans_idx, rule_pred_metrics))
+
+                # fidelity metrics - agreement with original classifier
+                fidelity_metrics = {'accuracy': accuracy_score(rf_vanilla_pred, rule_pred),
+                                    'precision': precision_score(rf_vanilla_pred, rule_pred, average=metric_averaging),
+                                    'recall': recall_score(rf_vanilla_pred, rule_pred, average=metric_averaging),
+                                    'f1': f1_score(rf_vanilla_pred, rule_pred, average=metric_averaging),
+                                    'auc': roc_auc_score(rf_vanilla_pred, rule_pred)}
+                fidelity_scores.append((ans_idx, fidelity_metrics))
+
             py_rule_end = timer()
             time_print('py rule evaluation completed {} seconds | {} from start'.format(
                 round(py_rule_end - py_rule_start), round(py_rule_end - start)))
@@ -166,14 +177,17 @@ def run_one_round(dataset_name,
                 # timer
                 'py_total_time': end - start,
                 'py_rf_time': rf_end - rf_start,
+                'py_rf_excluding_optuna_time': rf_end - rf_fit_start,
                 'py_ext_time': ext_end - ext_start,
-                'py_asprin_time': clingo_end - clingo_start,
+                'py_clingo_time': clingo_end - clingo_start,
+                'py_rule_time': py_rule_end - py_rule_start,
                 # metrics
                 'fold': fold,
                 'vanilla_metrics': vanilla_metrics,
                 'global_encoding': enc_k,
                 'global_encoding_file': enc_v,
                 'rule_metrics': scores,
+                'fidelity_metrics': fidelity_scores
             }
         else:
             out_dict = {
@@ -198,8 +212,10 @@ def run_one_round(dataset_name,
                 # timer
                 'py_total_time': end - start,
                 'py_rf_time': rf_end - rf_start,
+                'py_rf_excluding_optuna_time': rf_end - rf_fit_start,
                 'py_ext_time': ext_end - ext_start,
-                'py_asprin_time': clingo_end - clingo_start,
+                'py_clingo_time': clingo_end - clingo_start,
+                'py_rule_time': 0,
                 # metrics
                 'fold': fold,
                 'vanilla_metrics': vanilla_metrics,

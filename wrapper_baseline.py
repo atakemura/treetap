@@ -49,14 +49,18 @@ def run_experiment(dataset_name):
         if cat_X is not None:
             dt_best_params = optuna_decision_tree(cat_X.iloc[train_idx], y_train)
             dt_optuna_end = timer()
+            dt_fit_start = timer()
             dt = DecisionTreeClassifier(**dt_best_params, random_state=SEED)
             dt.fit(cat_X.iloc[train_idx], y_train)
+            dt_fit_end = timer()
             y_pred = dt.predict(cat_X.iloc[valid_idx])
         else:
             dt_best_params = optuna_decision_tree(x_train, y_train)
             dt_optuna_end = timer()
+            dt_fit_start = timer()
             dt = DecisionTreeClassifier(**dt_best_params, random_state=SEED)
             dt.fit(x_train, y_train)
+            dt_fit_end = timer()
             y_pred = dt.predict(x_valid)
         dt_end = timer()
         f1 = f1_score(y_valid, y_pred)
@@ -74,7 +78,8 @@ def run_experiment(dataset_name):
             'vanilla_metrics': vanilla_metrics,
             'total_time': dt_end - dt_start,
             'optuna_time': dt_optuna_end - dt_start,
-            'fit_predict_time': dt_end - dt_optuna_end
+            'fit_excluding_optuna_time': dt_fit_end - dt_fit_start,
+            'fit_predict_time': dt_end - dt_fit_start
         }
 
         rf_start = timer()
@@ -82,17 +87,22 @@ def run_experiment(dataset_name):
         if cat_X is not None:
             rf_best_params = optuna_random_forest(cat_X.iloc[train_idx], y_train)
             rf_optuna_end = timer()
+            rf_fit_start = timer()
             rf = RandomForestClassifier(**rf_best_params, n_jobs=NUM_CPU, random_state=SEED)
             rf.fit(cat_X.iloc[train_idx], y_train)
+            rf_fit_end = timer()
             y_pred = rf.predict(cat_X.iloc[valid_idx])
         else:
             rf_best_params = optuna_random_forest(x_train, y_train)
             rf_optuna_end = timer()
+            rf_fit_start = timer()
             rf = RandomForestClassifier(**rf_best_params, n_jobs=NUM_CPU, random_state=SEED)
             rf.fit(x_train, y_train)
+            rf_fit_end = timer()
             y_pred = rf.predict(x_valid)
         rf_end = timer()
         f1 = f1_score(y_valid, y_pred)
+        rf_vanilla_pred = y_pred  # copy for using in fidelity calculation later
         time_print('rf fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
         vanilla_metrics = {'accuracy':  accuracy_score(y_valid, y_pred),
                            'precision': precision_score(y_valid, y_pred, average=metric_averaging),
@@ -107,7 +117,8 @@ def run_experiment(dataset_name):
             'vanilla_metrics': vanilla_metrics,
             'total_time': rf_end - rf_start,
             'optuna_time': rf_optuna_end - rf_start,
-            'fit_predict_time': rf_end - rf_optuna_end
+            'fit_excluding_optuna_time': rf_fit_end - rf_fit_start,
+            'fit_predict_time': rf_end - rf_fit_start
         }
 
         lgb_start = timer()
@@ -126,11 +137,13 @@ def run_experiment(dataset_name):
         }
         lgb_best_params = optuna_lgb(x_train, y_train, static_params)
         lgb_optuna_end = timer()
+        lgb_fit_start = timer()
         lgb_hyperparams = {**static_params, **lgb_best_params}
         lgb_model = lgb.train(params=lgb_hyperparams,
                               train_set=lgb_train,
                               valid_sets=[lgb_valid],
                               valid_names=['valid'], num_boost_round=1000, early_stopping_rounds=50, verbose_eval=False)
+        lgb_fit_end = timer()
         if num_classes > 2:
             y_pred = np.argmax(lgb_model.predict(x_valid), axis=1)
         else:
@@ -151,7 +164,8 @@ def run_experiment(dataset_name):
             'vanilla_metrics': vanilla_metrics,
             'total_time': lgb_end - lgb_start,
             'optuna_time': lgb_optuna_end - lgb_start,
-            'fit_predict_time': lgb_end - lgb_optuna_end
+            'fit_excluding_optuna_time': lgb_fit_end - lgb_fit_start,
+            'fit_predict_time': lgb_end - lgb_fit_start
         }
 
         rfit_start = timer()
@@ -159,9 +173,11 @@ def run_experiment(dataset_name):
         if cat_X is not None:
             rfit_best_params = optuna_rulefit(cat_X.iloc[train_idx], y_train, rf_params=rf_best_params)
             rfit_optuna_end = timer()
+            rfit_fit_start = timer()
             rf = RandomForestClassifier(n_jobs=1, random_state=SEED, **rf_best_params)
             rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=NUM_CPU, random_state=SEED)
             rfit.fit(cat_X.iloc[train_idx], y_train, feature_names=cat_X.columns)
+            rfit_fit_end = timer()
             try:
                 y_pred = rfit.predict(cat_X.iloc[valid_idx])
             except IndexError:
@@ -169,9 +185,11 @@ def run_experiment(dataset_name):
         else:
             rfit_best_params = optuna_rulefit(x_train, y_train, rf_params=rf_best_params)
             rfit_optuna_end = timer()
+            rfit_fit_start = timer()
             rf = RandomForestClassifier(n_jobs=1, random_state=SEED, **rf_best_params)
             rfit = RuleFit(**rfit_best_params, tree_generator=rf, rfmode='classify', n_jobs=NUM_CPU, random_state=SEED)
             rfit.fit(x_train, y_train, feature_names=x_train.columns)
+            rfit_fit_end = timer()
             try:
                 y_pred = rfit.predict(x_valid)
             except IndexError:
@@ -186,9 +204,11 @@ def run_experiment(dataset_name):
                 'rfit.n_rules': 'FAILED',
                 'rfit.best_params': 'None',
                 'vanilla_metrics': 0,
+                'fidelity_metrics': 0,
                 'total_time': rfit_end - rfit_start,
                 'optuna_time': rfit_optuna_end - rfit_start,
-                'fit_predict_time': rfit_end - rfit_optuna_end
+                'fit_excluding_optuna_time': rfit_fit_end - rfit_fit_start,
+                'fit_predict_time': rfit_end - rfit_fit_start
             }
         else:  # success
             f1 = f1_score(y_valid, y_pred)
@@ -198,6 +218,13 @@ def run_experiment(dataset_name):
                                'recall':    recall_score(y_valid, y_pred, average=metric_averaging),
                                'f1':        f1_score(y_valid, y_pred, average=metric_averaging),
                                'auc':       roc_auc_score(y_valid, y_pred)}
+            # RuleFit fidelity metrics
+            fidelity_metrics = {'accuracy': accuracy_score(rf_vanilla_pred, y_pred),
+                                'precision': precision_score(rf_vanilla_pred, y_pred, average=metric_averaging),
+                                'recall': recall_score(rf_vanilla_pred, y_pred, average=metric_averaging),
+                                'f1': f1_score(rf_vanilla_pred, y_pred, average=metric_averaging),
+                                'auc': roc_auc_score(rf_vanilla_pred, y_pred)}
+
             rules = rfit.get_rules()
             rules = rules[rules.coef != 0].sort_values('support', ascending=False)
             n_rules = rules.shape[0]
@@ -210,9 +237,11 @@ def run_experiment(dataset_name):
                 'rfit.n_rules': n_rules,
                 'rfit.best_params': rfit_best_params,
                 'vanilla_metrics': vanilla_metrics,
+                'fidelity_metrics': fidelity_metrics,
                 'total_time': rfit_end - rfit_start,
                 'optuna_time': rfit_optuna_end - rfit_start,
-                'fit_predict_time': rfit_end - rfit_optuna_end
+                'fit_excluding_optuna_time': rfit_fit_end - rfit_fit_start,
+                'fit_predict_time': rfit_end - rfit_fit_start
             }
             # saving rule table to csv
             rfit_fname = os.path.join(exp_dir, f'rulefit_{dataset_name}_{f_idx}.csv')
