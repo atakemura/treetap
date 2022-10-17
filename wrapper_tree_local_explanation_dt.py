@@ -197,7 +197,7 @@ def run_one_round(dataset_name,
             'hyperparams': hyperparams,
             # timer
             'py_total_time': le_end - start,
-            'py_lgb_time': dt_end - dt_start,
+            'py_dt_time': dt_end - dt_start,
             # 'py_ext_time': ext_end - ext_start,
             'py_local_explanation_time': le_end - le_start,
             # metrics
