@@ -135,7 +135,21 @@ dmypy.json
 /.idea/
 
 # Ignore tmp
-/tree_asp/tmp/
+/tree_asp/tmp/*
+!/tree_asp/tmp/journal/
+/tree_asp/tmp/journal/*
+
+!/tree_asp/tmp/journal/global/
+/tree_asp/tmp/journal/global/*
+!/tree_asp/tmp/journal/global/.gitignore
+
+!/tree_asp/tmp/journal/local/
+/tree_asp/tmp/journal/local/*
+!/tree_asp/tmp/journal/local/.gitignore
+
+!/tree_asp/tmp/journal/benchmark/
+/tree_asp/tmp/journal/benchmark/*
+!/tree_asp/tmp/journal/benchmark/.gitignore
 
 # vscode
 .vscode

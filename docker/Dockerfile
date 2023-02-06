@@ -43,8 +43,19 @@ RUN ( \
     echo 'Subsystem sftp /usr/lib/openssh/sftp-server'; \
   ) > /etc/ssh/sshd_config_test_clion \
   && mkdir /run/sshd
+
 RUN useradd -m user \
   && yes password | passwd user
+
+RUN mkdir /home/user/workspace && \
+    chown -R user:user /home/user/workspace
+
+USER user
+
+WORKDIR /home/user/workspace
+RUN git clone https://github.com/atakemura/treetap.git
+
+USER root
 
 RUN usermod -s /bin/bash user
 
