@@ -1,6 +1,6 @@
 class Rule:
     def __init__(self, idx, rule_str, conditions, support, size, accuracy, error_rate,
-                 precision, recall, f1_score, predict_class):
+                 precision, recall, f1_score, predict_class, original_predict_class):
         self.idx = idx
         self.rule_str = rule_str
         self.items = conditions
@@ -12,6 +12,7 @@ class Rule:
         self.recall = recall
         self.f1_score = f1_score
         self.predict_class = predict_class
+        self.original_predict_class = original_predict_class
 
     def __str__(self):
         return 'rule_idx={}. rule={}. items={}. size={}. predict_class={}.' \
