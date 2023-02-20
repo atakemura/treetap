@@ -55,6 +55,7 @@ def run_one_round(dataset_name,
     exp_dir = 'tree_asp/tmp/journal/global'
     tmp_pattern_file = os.path.join(exp_dir, '{}_pattern_out.txt'.format(experiment_tag))
     tmp_class_file = os.path.join(exp_dir, '{}_n_class.lp'.format(experiment_tag))
+    tmp_rule_file = os.path.join(exp_dir, '{}_rules.csv'.format(experiment_tag))
     log_json = os.path.join(exp_dir, 'global_output.json')
     log_json_quali = os.path.join(exp_dir, 'global_output_quali.json')
 
@@ -86,6 +87,9 @@ def run_one_round(dataset_name,
     rf_extractor.fit(x_train, y_train, model=rf, feature_names=feature_names)
     res_str = rf_extractor.transform(x_train, y_train)
     ext_end = timer()
+
+    df = rf_extractor.export_rule_df()
+    df.to_csv(tmp_rule_file, encoding='utf-8', index=False, header=True)
 
     with open(tmp_pattern_file, 'w', encoding='utf-8') as outfile:
         outfile.write(res_str)

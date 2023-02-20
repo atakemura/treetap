@@ -1,5 +1,6 @@
 import numpy as np
 import lightgbm as lgb
+import pandas as pd
 
 from sklearn.base import is_classifier
 from sklearn.ensemble import RandomForestClassifier
@@ -26,6 +27,10 @@ EQ_PATTERN = ' == '
 NEQ_PATTERN = ' != '
 
 
+def sigmoid(x):
+    return 1. / (1. + np.exp(-x))
+
+
 class OnlyLeafFoundException(BaseException):
     pass
 
@@ -43,6 +48,7 @@ class DTGlobalRuleExtractor:
         self.rules_ = None
         self.conditions_ = None
         self.metric_averaging = None
+        self.tree_rule_meta_ = []  # List[dict]
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         # validate the input model
@@ -302,10 +308,34 @@ class DTGlobalRuleExtractor:
                                         precision=int(round(node_rule['precision'] * 100)),
                                         recall=int(round(node_rule['recall'] * 100)),
                                         f1_score=int(round(node_rule['f1_score'] * 100)),
-                                        predict_class=node_rule['predict_class']))
+                                        predict_class=node_rule['predict_class'],
+                                        original_predict_class=node_rule['class']))
+                self.tree_rule_meta_.append(dict(rule_idx=rule_idx, tree_idx=t_idx))
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
         return print_dicts
+
+    def export_rule_df(self):
+        tmp = []
+        for trm in self.tree_rule_meta_:
+            rule = self.rules_[trm['rule_idx']]
+            tmp.append(dict(
+                tree_idx=trm['tree_idx'],
+                rule_idx=trm['rule_idx'],
+                rule_condition_str=rule.rule_str,
+                rule_predicted_class=rule.predict_class,
+                rule_original_predict_class=rule.original_predict_class,
+                rule_conditions=rule.items,
+                rule_conditions_idx=[c.idx for c in rule.items],
+                support=rule.support,
+                size=rule.size,
+                accuracy=rule.accuracy,
+                precision_score=rule.precision,
+                recall=rule.recall,
+                f1_score=rule.f1_score
+                ))
+        df = pd.DataFrame(tmp)
+        return df
 
     def asp_str_from_dicts(self, list_dicts: list):
         print_lines = []
@@ -508,7 +538,8 @@ class DTLocalRuleExtractor(DTGlobalRuleExtractor):
                                 precision=int(round(node_rule['precision'] * 100)),
                                 recall=int(round(node_rule['recall'] * 100)),
                                 f1_score=int(round(node_rule['f1_score'] * 100)),
-                                predict_class=node_rule['predict_class'])
+                                predict_class=node_rule['predict_class'],
+                                original_predict_class=node_rule['class'])
                     rl_obj_list.append(rule)
                     seen_rule_list.append(rule_txt)
 
@@ -570,6 +601,7 @@ class RFGlobalRuleExtractor:
         self.conditions_ = None
         self.metric_averaging = None
         self.num_cores = cpu_count(logical=False)
+        self.tree_rule_meta_ = []  #List[dict]
 
     def fit(self, X, y, model, feature_names=None, **params):
         # validate the input model
@@ -841,9 +873,9 @@ class RFGlobalRuleExtractor:
 
         for t_idx, t in rules.items():
             for node_idx, node_rule in t.items():
-                # skip unrelated classes
-                if node_rule['class'] != 1:
-                    continue
+                # # skip unrelated classes
+                # if node_rule['class'] != 1:
+                #     continue
                 # rule
                 rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
 
@@ -901,10 +933,34 @@ class RFGlobalRuleExtractor:
                                         precision=int(round(node_rule['precision'] * 100)),
                                         recall=int(round(node_rule['recall'] * 100)),
                                         f1_score=int(round(node_rule['f1_score'] * 100)),
-                                        predict_class=node_rule['predict_class']))
+                                        predict_class=node_rule['predict_class'],
+                                        original_predict_class=node_rule['class']))
+                self.tree_rule_meta_.append(dict(rule_idx=rule_idx, tree_idx=t_idx))
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
         return print_dicts
+
+    def export_rule_df(self):
+        tmp = []
+        for trm in self.tree_rule_meta_:
+            rule = self.rules_[trm['rule_idx']]
+            tmp.append(dict(
+                tree_idx=trm['tree_idx'],
+                rule_idx=trm['rule_idx'],
+                rule_condition_str=rule.rule_str,
+                rule_predicted_class=rule.predict_class,
+                rule_original_predict_class=rule.original_predict_class,
+                rule_conditions=rule.items,
+                rule_conditions_idx=[c.idx for c in rule.items],
+                support=rule.support,
+                size=rule.size,
+                accuracy=rule.accuracy,
+                precision_score=rule.precision,
+                recall=rule.recall,
+                f1_score=rule.f1_score
+                ))
+        df = pd.DataFrame(tmp)
+        return df
 
     def asp_str_from_dicts(self, list_dicts: list):
         print_lines = []
@@ -1122,7 +1178,8 @@ class RFLocalRuleExtractor(RFGlobalRuleExtractor):
                                 precision=int(round(node_rule['precision'] * 100)),
                                 recall=int(round(node_rule['recall'] * 100)),
                                 f1_score=int(round(node_rule['f1_score'] * 100)),
-                                predict_class=node_rule['predict_class'])
+                                predict_class=node_rule['predict_class'],
+                                original_predict_class=node_rule['class'])
                     rl_obj_list.append(rule)
                     seen_rule_list.append(rule_txt)
 
@@ -1261,6 +1318,7 @@ class LGBMGlobalRuleExtractor:
         self.num_tree_per_iteration = None
         self.metric_averaging = None
         self.num_cores = cpu_count(logical=False)
+        self.tree_rule_meta_ = []  # List[dict]
 
     def fit(self, X, y, model=None, feature_names=None, **params):
         if not isinstance(model, lgb.Booster):
@@ -1381,7 +1439,12 @@ class LGBMGlobalRuleExtractor:
                     class_name = tree.tree_index % self.num_tree_per_iteration
                 else:
                     class_name = 1
-                rule_dict['class'] = class_name
+                ## only works for binary
+                if sigmoid(tree.values[node]) < 0.5:
+                    cls = 0
+                else:
+                    cls = 1
+                rule_dict['class'] = cls
                 rule_dict['value'] = int(tree.node_sample_weight[node])  # number of supporting examples
                 if node == leaf_max:
                     rule_dict['is_tree_max'] = True
@@ -1555,10 +1618,34 @@ class LGBMGlobalRuleExtractor:
                                         precision=int(round(node_rule['precision'] * 100)),
                                         recall=int(round(node_rule['recall'] * 100)),
                                         f1_score=int(round(node_rule['f1_score'] * 100)),
-                                        predict_class=node_rule['predict_class']))
+                                        predict_class=node_rule['predict_class'],
+                                        original_predict_class=node_rule['class']))
+                self.tree_rule_meta_.append(dict(rule_idx=rule_idx, tree_idx=t_idx))
         self.rules_ = rl_obj_list
         self.conditions_ = lit_obj_list
         return print_dicts
+
+    def export_rule_df(self):
+        tmp = []
+        for trm in self.tree_rule_meta_:
+            rule = self.rules_[trm['rule_idx']]
+            tmp.append(dict(
+                tree_idx=trm['tree_idx'],
+                rule_idx=trm['rule_idx'],
+                rule_condition_str=rule.rule_str,
+                rule_predicted_class=rule.predict_class,
+                rule_original_predict_class=rule.original_predict_class,
+                rule_conditions=rule.items,
+                rule_conditions_idx=[c.idx for c in rule.items],
+                support=rule.support,
+                size=rule.size,
+                accuracy=rule.accuracy,
+                precision_score=rule.precision,
+                recall=rule.recall,
+                f1_score=rule.f1_score
+                ))
+        df = pd.DataFrame(tmp)
+        return df
 
     def asp_str_from_dicts(self, list_dicts: list):
         print_lines = []
@@ -1834,7 +1921,8 @@ class LGBMLocalRuleExtractor(LGBMGlobalRuleExtractor):
                                 precision=int(round(node_rule['precision'] * 100)),
                                 recall=int(round(node_rule['recall'] * 100)),
                                 f1_score=int(round(node_rule['f1_score'] * 100)),
-                                predict_class=node_rule['predict_class'])
+                                predict_class=node_rule['predict_class'],
+                                original_predict_class=node_rule['class'])
                     rl_obj_list.append(rule)
                     seen_rule_list.append(rule_txt)
 
