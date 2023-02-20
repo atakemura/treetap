@@ -136,6 +136,8 @@ dmypy.json
 
 # Ignore tmp
 /tree_asp/tmp/*
+!/tree_asp/tmp/scratch/
+/tree_asp/tmp/scratch/*
 !/tree_asp/tmp/journal/
 /tree_asp/tmp/journal/*
 
