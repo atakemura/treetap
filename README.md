@@ -1,6 +1,64 @@
 # treetap
 
-This repository contains the source code for "Generating Global and Local Explanations for Tree-Ensemble Learning Methods by Answer Set Programming".
+Generating Explainable Rule Sets from Tree-Ensembles by Answer Set Programming.
+
+This repository contains the source code for the paper 
+"Generating Global and Local Explanations for Tree-Ensemble Learning Methods by Answer Set Programming".
+
+## Example
+
+Please see the [demo notebook](demo.ipynb) for a more detailed example.
+
+Given a trained tree-ensemble model, like this:
+```python
+rf = RandomForestClassifier(n_estimators=10, max_depth=5, random_state=SEED, n_jobs=1)
+rf.fit(x_train, y_train)
+```
+
+Fit Rule Extractor for your Trees and Explanation type:
+```python
+# for global explanations
+rf_global_extractor = RFGlobalRuleExtractor()
+rf_global_extractor.fit(x_train, y_train, model=rf, feature_names=feat)
+```
+
+(Optional: Check the base rules in the trees with the following)
+```python
+# this returns a pandas dataframe
+rf_global_extractor.export_rule_df()
+```
+
+Analyze the rules with ASP
+```python
+global_res_str = rf_global_extractor.transform(x_train, y_train)
+with open('./tree_asp/tmp/scratch/rules.lp', 'w', encoding='utf-8') as outfile:
+    outfile.write(global_res_str)
+with open('./tree_asp/tmp/scratch/class.lp', 'w', encoding='utf-8') as outfile:
+    outfile.write('class(1).'.format(int(y_train.nunique() - 1)))
+# solving with ASP
+o = subprocess.run(['clingo', 
+                    './tree_asp/asp_encoding/global_accuracy_coverage.lp', 
+                    './tree_asp/tmp/scratch/rules.lp',
+                    './tree_asp/tmp/scratch/class.lp', 
+                    '0', '--parallel-mode=8,split'], 
+                   capture_output=True, timeout=600)
+answers, clasp_info = generate_answers(o.stdout.decode())
+# printing the results
+for ans_set in answers:
+    if not ans_set.is_optimal:
+        continue
+    else:
+        for ans in ans_set.answer:   # list(tuple(str, tuple(int)))
+            pat_idx = ans[-1][0]
+            pat = rf_global_extractor.rules_[pat_idx]  # type: Rule
+            print(f'class {pat.predict_class} IF {pat.rule_str}')
+        break
+```
+
+... which should print out something like:
+```
+class 1 IF occupation_Handlers_cleaners <= 0.5 AND sex_Female <= 0.5 AND occupation_Machine_op_inspct <= 0.5 AND marital_status_Married_civ_spouse > 0.5 AND hours_per_week > 33.5
+```
 
 # Project Structure
 ```text
@@ -55,10 +113,14 @@ Additionally, if you wish to reproduce the experiments, you need the following:
 
 # Known Issues
 
-You may have difficult time building the container and running the scripts on M1/M2-based Macs. The scripts have only been tested on a standard Ubuntu machine and Intel Mac.
+You may have difficult time building the container and running the scripts on M1/M2-based Macs.   
+The scripts have only been tested on a standard Ubuntu machine and Intel Mac.
 
 # Publications/Citations
-n/a.
+
+* Akihiro Takemura, Katsumi Inoue:
+Generating Explainable Rule Sets from Tree-Ensemble Learning Methods by Answer Set Programming. ICLP Technical Communications 2021: 127-140 https://arxiv.org/abs/2109.08290
+
 
 # License
 TBD.
