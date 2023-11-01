@@ -175,16 +175,16 @@ def optuna_lgb(X, y, static_params, random_state=2020):
         return
 
     def objective(trial: optuna.Trial):
-        params = {'learning_rate': trial.suggest_loguniform('learning_rate', 0.01, 0.2),
+        params = {'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
                   'max_depth': trial.suggest_int('max_depth', 2, 9),
                   'num_leaves': trial.suggest_int('num_leaves', 2, 100),
                   'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 500, 10),
-                  'min_child_weight': trial.suggest_loguniform('min_child_weight', 1e-3, 1e+1),
-                  'feature_fraction': trial.suggest_uniform('feature_fraction', 0.05, 1.0),
-                  'subsample': trial.suggest_uniform('subsample', 0.2, 1.0),
+                  'min_child_weight': trial.suggest_float('min_child_weight', 1e-3, 1e+1, log=True),
+                  'feature_fraction': trial.suggest_float('feature_fraction', 0.05, 1.0),
+                  'subsample': trial.suggest_float('subsample', 0.2, 1.0),
                   'subsample_freq': trial.suggest_int('subsample_freq', 1, 20),
-                  'lambda_l1': trial.suggest_loguniform('lambda_l1', 1e-5, 10),
-                  'lambda_l2': trial.suggest_loguniform('lambda_l2', 1e-5, 10),
+                  'lambda_l1': trial.suggest_float('lambda_l1', 1e-5, 10, log=True),
+                  'lambda_l2': trial.suggest_float('lambda_l2', 1e-5, 10, log=True),
                   }
         all_params = {**params, **static_params}
 
@@ -199,11 +199,9 @@ def optuna_lgb(X, y, static_params, random_state=2020):
 
             model = lgb.train(all_params, train_data,
                               num_boost_round=num_boost_round,
-                              early_stopping_rounds=early_stopping,
                               valid_sets=[valid_data],
                               valid_names=['valid'],
-                              callbacks=[pruning_callback],
-                              verbose_eval=False)
+                              callbacks=[pruning_callback, lgb.callback.early_stopping(early_stopping, verbose=False)])
             if static_params['num_classes'] > 1:
                 score = model.best_score['valid']['multi_logloss']
             else:
