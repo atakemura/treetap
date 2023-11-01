@@ -1,5 +1,7 @@
 from wrapper_anchor import run_experiment as anchor_experiment
 from wrapper_baseline import run_experiment as baseline_experiment
+from wrapper_pyxai_dt import run_experiment as pyxai_dt_experiment
+from wrapper_pyxai_rf import run_experiment as pyxai_rf_experiment
 from tree_asp.utils import time_print
 
 import warnings
@@ -33,6 +35,12 @@ if __name__ == '__main__':
 
         time_print('dataset {} {}/{} anchor'.format(data, d_idx+1, len(datasets)))
         anchor_experiment(data)
+
+        time_print('dataset {} {}/{} pyxai dt'.format(data, d_idx+1, len(datasets)))
+        pyxai_dt_experiment(data)
+
+        time_print('dataset {} {}/{} pyxai rf'.format(data, d_idx+1, len(datasets)))
+        pyxai_rf_experiment(data)
 
         time_print('dataset {} {}/{} done'.format(data, d_idx+1, len(datasets)))
         time_print('='*80)
