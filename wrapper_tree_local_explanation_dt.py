@@ -116,6 +116,7 @@ def run_one_round(dataset_name,
         time_print('\tlocal explanation enc {} {}/{}'.format(enc_k, enc_idx + 1, len(encoding_dict)))
         le_score_store = {}
         le_rule_store = {}
+        le_time_taken = []
 
         for s_idx, v_idx in enumerate(sample_idx):
             if ((s_idx+1) % 10) == 0:
@@ -129,14 +130,18 @@ def run_one_round(dataset_name,
                 outfile.write(local_asp_prestr[0])
 
             clingo_completed = False
+            clingo_start = timer()
             try:
                 o = subprocess.run(['clingo', enc_v,
                                     local_tmp_pattern_file, '0',
                                     ], capture_output=True, timeout=600)
                 clingo_completed = True
+                clingo_end = timer()
+                le_time_taken.append(clingo_end - clingo_start)
             except subprocess.TimeoutExpired:
                 o = None
                 clingo_completed = False
+                le_time_taken.append(600)  # timed out
 
             if clingo_completed:
                 answers, clasp_info = generate_answers(o.stdout.decode())
@@ -181,25 +186,17 @@ def run_one_round(dataset_name,
             'model': 'DecisionTree',
             'experiment': experiment_tag,
             'dataset': dataset_name,
-            # 'n_estimators': hyperparams['n_estimators'],
             'max_depth': hyperparams['max_depth'],
             # 'encoding': encoding,
             'clingo_completed': clingo_completed,
-            # clasp
-            # 'models': clasp_info.stats['Models'],
-            # 'optimum': True if clasp_info.stats['Optimum'] == 'yes' else False,
-            # # 'optimal': int(clasp_info.stats['Optimal']),
-            # 'clasp_time': clasp_info.stats['Time'],
-            # 'clasp_cpu_time': clasp_info.stats['CPU Time'],
-            # dt related
-            # 'lgb_n_nodes': len(dt_extractor.conditions_),
-            # 'lgb_n_patterns': len(dt_extractor.rules_),
             'hyperparams': hyperparams,
             # timer
             'py_total_time': le_end - start,
             'py_dt_time': dt_end - dt_start,
             # 'py_ext_time': ext_end - ext_start,
             'py_local_explanation_time': le_end - le_start,
+            'py_local_explanation_clingo_time': sum(le_time_taken),
+            'py_local_explanation_clingo_time_array': le_time_taken,
             # metrics
             'fold': fold,
             'vanilla_metrics': vanilla_metrics,
