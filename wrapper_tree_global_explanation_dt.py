@@ -105,7 +105,7 @@ def run_one_round(dataset_name,
         try:
             o = subprocess.run(['clingo', enc_v,
                                 tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8,split'
-                                ], capture_output=True, timeout=600)
+                                ], capture_output=True, timeout=1200)
             clingo_completed = True
         except subprocess.TimeoutExpired:
             o = None

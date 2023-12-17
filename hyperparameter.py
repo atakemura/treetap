@@ -71,7 +71,7 @@ def optuna_decision_tree(X, y, random_state=2020):
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
     study.enqueue_trial({'max_depth': 5, 'min_samples_leaf': 1e-3, 'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
     study.enqueue_trial({'max_depth': 9, 'min_samples_leaf': 1e-3, 'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+    study.optimize(objective, n_trials=500, callbacks=[optuna_early_stopping_callback],
                    catch=(ModelException, optuna.exceptions.TrialPruned))
     return study.best_params
 
@@ -137,7 +137,7 @@ def optuna_random_forest(X, y, random_state=2020):
                          'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
     study.enqueue_trial({'n_estimators': 200, 'max_depth': 9, 'min_samples_leaf': 1e-3,
                          'min_weight_fraction_leaf': 0, 'criterion': 'gini'})
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+    study.optimize(objective, n_trials=500, callbacks=[optuna_early_stopping_callback],
                    catch=(ModelException, optuna.exceptions.TrialPruned))
     return study.best_params
 
@@ -189,7 +189,7 @@ def optuna_lgb(X, y, static_params, random_state=2020):
         all_params = {**params, **static_params}
 
         pruning_callback = optuna.integration.LightGBMPruningCallback(trial, all_params['metric'], valid_name='valid')
-        num_boost_round = 500
+        num_boost_round = 1000
         early_stopping = 30
         x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state, stratify=y)
 
@@ -218,7 +218,7 @@ def optuna_lgb(X, y, static_params, random_state=2020):
     study.enqueue_trial({'learning_rate': 0.1, 'max_depth': 9, 'num_leaves': 50, 'min_data_in_leaf': 10,
                          'min_child_weight': 0.001, 'feature_fraction': 1.0, 'subsample': 1.0, 'subsample_freq': 0,
                          'lambda_l1': 0.1, 'lambda_l2': 0.1})
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+    study.optimize(objective, n_trials=500, callbacks=[optuna_early_stopping_callback],
                    catch=(ModelException, optuna.exceptions.TrialPruned))
     return study.best_params
 
@@ -277,6 +277,6 @@ def optuna_rulefit(X, y, rf_params=None, random_state=2020):
     sampler = optuna.samplers.TPESampler(seed=random_state)
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+    study.optimize(objective, n_trials=500, callbacks=[optuna_early_stopping_callback],
                    catch=(ModelException, optuna.exceptions.TrialPruned))
     return study.best_params

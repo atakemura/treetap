@@ -145,14 +145,14 @@ def run_one_round(dataset_name,
             try:
                 o = subprocess.run(['clingo', enc_v,
                                     local_tmp_pattern_file, '0',
-                                    ], capture_output=True, timeout=600)
+                                    ], capture_output=True, timeout=1200)
                 clingo_completed = True
                 clingo_end = timer()
                 le_time_taken.append(clingo_end - clingo_start)
             except subprocess.TimeoutExpired:
                 o = None
                 clingo_completed = False
-                le_time_taken.append(600)  # timed out
+                le_time_taken.append(1200)  # timed out
 
             if clingo_completed:
                 answers, clasp_info = generate_answers(o.stdout.decode())

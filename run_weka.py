@@ -394,7 +394,7 @@ def optuna_weka_j48(X, y):
     sampler = optuna.samplers.TPESampler(seed=2020)
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+    study.optimize(objective, n_trials=500, callbacks=[optuna_early_stopping_callback],
                    catch=(WekaException, optuna.exceptions.TrialPruned))
     return study.best_params
 
@@ -446,7 +446,7 @@ def optuna_weka_ripper(X, y):
     sampler = optuna.samplers.TPESampler(seed=2020)
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+    study.optimize(objective, n_trials=500, callbacks=[optuna_early_stopping_callback],
                    catch=(WekaException, optuna.exceptions.TrialPruned))
     return study.best_params
 
@@ -517,7 +517,7 @@ def optuna_weka_part(X, y):
     sampler = optuna.samplers.TPESampler(seed=2020)
     study = optuna.create_study(direction='maximize', sampler=sampler,
                                 pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
-    study.optimize(objective, n_trials=100, timeout=1200, callbacks=[optuna_early_stopping_callback],
+    study.optimize(objective, n_trials=500, callbacks=[optuna_early_stopping_callback],
                    catch=(WekaException, optuna.exceptions.TrialPruned))
     return study.best_params
 
@@ -543,35 +543,35 @@ def run_experiment(dataset_name):
         x_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         x_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
-        j48_start = timer()
-        j48_best_params = optuna_weka_j48(x_train, y_train)
-        j48_optuna_end = timer()
-        j48 = WekaJ48(**j48_best_params)
-        j48.fit(x_train, y_train)
-        y_pred = j48.predict(x_valid)
-        j48_end = timer()
-        f1 = f1_score(y_valid, y_pred)
-        time_print('j48 fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
-        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
-                           'precision': precision_score(y_valid, y_pred, average=metric_averaging),
-                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
-                           'auc': roc_auc_score(y_valid, y_pred)}
-        j48_dict = {
-            'dataset': dataset_name,
-            'fold': f_idx,
-            'model': 'WekaJ48',
-            'j48.model': str(j48.model),
-            'j48.model.graph': j48.model.graph,
-            'j48.best_params': j48_best_params,
-            'vanilla_metrics': vanilla_metrics,
-            'total_time': j48_end - j48_start,
-            'optuna_time': j48_optuna_end - j48_start,
-            'fit_predict_time': j48_end - j48_optuna_end
-        }
-
-        with open(log_json, 'a', encoding='utf-8') as out_log_json:
-            out_log_json.write(json.dumps(j48_dict) + '\n')
+        # j48_start = timer()
+        # j48_best_params = optuna_weka_j48(x_train, y_train)
+        # j48_optuna_end = timer()
+        # j48 = WekaJ48(**j48_best_params)
+        # j48.fit(x_train, y_train)
+        # y_pred = j48.predict(x_valid)
+        # j48_end = timer()
+        # f1 = f1_score(y_valid, y_pred)
+        # time_print('j48 fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
+        # vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+        #                    'precision': precision_score(y_valid, y_pred, average=metric_averaging),
+        #                    'recall': recall_score(y_valid, y_pred, average=metric_averaging),
+        #                    'f1': f1_score(y_valid, y_pred, average=metric_averaging),
+        #                    'auc': roc_auc_score(y_valid, y_pred)}
+        # j48_dict = {
+        #     'dataset': dataset_name,
+        #     'fold': f_idx,
+        #     'model': 'WekaJ48',
+        #     'j48.model': str(j48.model),
+        #     'j48.model.graph': j48.model.graph,
+        #     'j48.best_params': j48_best_params,
+        #     'vanilla_metrics': vanilla_metrics,
+        #     'total_time': j48_end - j48_start,
+        #     'optuna_time': j48_optuna_end - j48_start,
+        #     'fit_predict_time': j48_end - j48_optuna_end
+        # }
+        #
+        # with open(log_json, 'a', encoding='utf-8') as out_log_json:
+        #     out_log_json.write(json.dumps(j48_dict) + '\n')
 
         ripper_start = timer()
         ripper_best_params = optuna_weka_ripper(x_train, y_train)
@@ -602,34 +602,34 @@ def run_experiment(dataset_name):
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
             out_log_json.write(json.dumps(ripper_dict) + '\n')
 
-        part_start = timer()
-        part_best_params = optuna_weka_part(x_train, y_train)
-        part_optuna_end = timer()
-        part = WekaPART(**part_best_params)
-        part.fit(x_train, y_train)
-        y_pred = part.predict(x_valid)
-        part_end = timer()
-        f1 = f1_score(y_valid, y_pred)
-        time_print('part fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
-        vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
-                           'precision': precision_score(y_valid, y_pred, average=metric_averaging),
-                           'recall': recall_score(y_valid, y_pred, average=metric_averaging),
-                           'f1': f1_score(y_valid, y_pred, average=metric_averaging),
-                           'auc': roc_auc_score(y_valid, y_pred)}
-        part_dict = {
-            'dataset': dataset_name,
-            'fold': f_idx,
-            'model': 'WekaPART',
-            'part.model': str(part.model),
-            'part.best_params': part_best_params,
-            'vanilla_metrics': vanilla_metrics,
-            'total_time': part_end - part_start,
-            'optuna_time': part_optuna_end - part_start,
-            'fit_predict_time': part_end - part_optuna_end
-        }
-
-        with open(log_json, 'a', encoding='utf-8') as out_log_json:
-            out_log_json.write(json.dumps(part_dict) + '\n')
+        # part_start = timer()
+        # part_best_params = optuna_weka_part(x_train, y_train)
+        # part_optuna_end = timer()
+        # part = WekaPART(**part_best_params)
+        # part.fit(x_train, y_train)
+        # y_pred = part.predict(x_valid)
+        # part_end = timer()
+        # f1 = f1_score(y_valid, y_pred)
+        # time_print('part fold {} f1_score {}'.format(f_idx+1, round(f1, 2)))
+        # vanilla_metrics = {'accuracy': accuracy_score(y_valid, y_pred),
+        #                    'precision': precision_score(y_valid, y_pred, average=metric_averaging),
+        #                    'recall': recall_score(y_valid, y_pred, average=metric_averaging),
+        #                    'f1': f1_score(y_valid, y_pred, average=metric_averaging),
+        #                    'auc': roc_auc_score(y_valid, y_pred)}
+        # part_dict = {
+        #     'dataset': dataset_name,
+        #     'fold': f_idx,
+        #     'model': 'WekaPART',
+        #     'part.model': str(part.model),
+        #     'part.best_params': part_best_params,
+        #     'vanilla_metrics': vanilla_metrics,
+        #     'total_time': part_end - part_start,
+        #     'optuna_time': part_optuna_end - part_start,
+        #     'fit_predict_time': part_end - part_optuna_end
+        # }
+        #
+        # with open(log_json, 'a', encoding='utf-8') as out_log_json:
+        #     out_log_json.write(json.dumps(part_dict) + '\n')
 
 
 if __name__ == '__main__':
