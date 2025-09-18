@@ -118,9 +118,12 @@ The scripts have only been tested on a standard Ubuntu machine and Intel Mac.
 
 # Publications/Citations
 
+* Akihiro Takemura, Katsumi Inoue: Generating Global and Local Explanations for Tree-Ensemble Learning Methods by Answer Set Programming. Theory and Practice of Logic Programming. 2024;24(5):973-1010. doi:10.1017/S1471068424000401
+
 * Akihiro Takemura, Katsumi Inoue:
 Generating Explainable Rule Sets from Tree-Ensemble Learning Methods by Answer Set Programming. ICLP Technical Communications 2021: 127-140 https://arxiv.org/abs/2109.08290
 
 
 # License
-TBD.
+
+MIT

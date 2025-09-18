@@ -255,12 +255,6 @@ class DTGlobalRuleExtractor:
                 rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
 
                 if rule_txt in rule_list:
-                    rule_idx = rule_list.index(rule_txt)
-                    # # add support
-                    # # TODO: do not accumulate
-                    # for p in print_dicts:
-                    #     if p['rule_idx'] == rule_idx:
-                    #         p['support'] += node_rule['frequency']
                     continue
                 else:
                     rule_list.append(rule_txt)
@@ -880,12 +874,6 @@ class RFGlobalRuleExtractor:
                 rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
 
                 if rule_txt in rule_list:
-                    rule_idx = rule_list.index(rule_txt)
-                    # # add support
-                    # for p in print_dicts:
-                    #     # TODO: rethink this, maybe not add the support again
-                    #     if p['rule_idx'] == rule_idx:
-                    #         p['support'] += node_rule['frequency']
                     continue
                 else:
                     rule_list.append(rule_txt)
@@ -1407,7 +1395,6 @@ class LGBMGlobalRuleExtractor:
 
     def get_rule(self, path, feature_names, tree):
         # find the max leaf for this tree
-        # TODO: this might have to change from leaf_value to leaf_weight or sample_count
         leaf_ids = np.where(tree.decision_type == tree.TREE_LEAF)[0]
         leaf_values = tree.values[leaf_ids]
         leaf_argmax = np.argmax(leaf_values)
@@ -1565,12 +1552,6 @@ class LGBMGlobalRuleExtractor:
                 rule_txt = ' AND '.join([k for k in node_rule.keys() if k not in self.non_rule_keys])
 
                 if rule_txt in rule_list:
-                    # rule_idx = rule_list.index(rule_txt)
-                    # # add support
-                    # for p in print_dicts:
-                    #     # TODO: do not accumulate
-                    #     if p['rule_idx'] == rule_idx:
-                    #         p['support'] += node_rule['frequency']
                     continue
                 else:
                     rule_list.append(rule_txt)
@@ -1730,7 +1711,6 @@ class LGBMLocalRuleExtractor(LGBMGlobalRuleExtractor):
         rule_tree_indices = list()
         candidate_asp_rules = list()
 
-        # todo: parallelize
         for s_idx, sample_leaf_idx in enumerate(leaf_indices):
             rule_tree_dict = defaultdict(list)
             rule_dict_list = list()

@@ -142,7 +142,9 @@ def run_experiment(dataset_name):
         lgb_model = lgb.train(params=lgb_hyperparams,
                               train_set=lgb_train,
                               valid_sets=[lgb_valid],
-                              valid_names=['valid'], num_boost_round=1000, early_stopping_rounds=50, verbose_eval=False)
+                              valid_names=['valid'],
+                              num_boost_round=1000,
+                              callbacks=[lgb.callback.early_stopping(50, verbose=False)])
         lgb_fit_end = timer()
         if num_classes > 2:
             y_pred = np.argmax(lgb_model.predict(x_valid), axis=1)

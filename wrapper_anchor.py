@@ -96,12 +96,16 @@ def run_experiment(dataset_name):
         dt_valid_covs = []
         dt_valid_prcs = []
         dt_anchor_rules = []
+        dt_anchor_time_array = []
 
         mat_x_valid = x_valid.sample(anchor_n_instances, replace=True, random_state=SEED).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
             if ((v_idx+1) % 10) == 0:
                 time_print('dt anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
+            anchor_start = timer()
             ae = anchor_explain_single(mat_x_valid[v_idx, :], explainer, dt)
+            anchor_end = timer()
+            dt_anchor_time_array.append(anchor_end - anchor_start)
             fit_anchor = np.where(np.all(mat_x_valid[:, ae.features()] == mat_x_valid[v_idx][ae.features()], axis=1))[0]
             cov = fit_anchor.shape[0] / float(mat_x_valid.shape[0])
             prc = np.mean(dt.predict(mat_x_valid[fit_anchor]) == dt.predict(mat_x_valid[v_idx].reshape(1, -1)))
@@ -138,6 +142,8 @@ def run_experiment(dataset_name):
             'optuna_time': dt_optuna_end - dt_start,
             'fit_predict_time': dt_fit_predict_end - dt_optuna_end,
             'anchor_time': dt_anchor_end - dt_anchor_start,
+            'anchor_time_array': dt_anchor_time_array,
+            'anchor_time_sum': sum(dt_anchor_time_array)
         }
 
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
@@ -170,12 +176,16 @@ def run_experiment(dataset_name):
         rf_valid_covs = []
         rf_valid_prcs = []
         rf_anchor_rules = []
+        rf_anchor_time_array = []
 
         mat_x_valid = x_valid.sample(anchor_n_instances, replace=True, random_state=SEED).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
             if ((v_idx+1) % 10) == 0:
                 time_print('rf anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
+            anchor_start = timer()
             ae = anchor_explain_single(mat_x_valid[v_idx, :], explainer, rf)
+            anchor_end = timer()
+            rf_anchor_time_array.append(anchor_end - anchor_start)
             fit_anchor = np.where(np.all(mat_x_valid[:, ae.features()] == mat_x_valid[v_idx][ae.features()], axis=1))[0]
             cov = fit_anchor.shape[0] / float(mat_x_valid.shape[0])
             prc = np.mean(rf.predict(mat_x_valid[fit_anchor]) == rf.predict(mat_x_valid[v_idx].reshape(1, -1)))
@@ -214,6 +224,8 @@ def run_experiment(dataset_name):
             'optuna_time': rf_optuna_end - rf_start,
             'fit_predict_time': rf_fit_predict_end - rf_optuna_end,
             'anchor_time': rf_anchor_end - rf_anchor_start,
+            'anchor_time_array': rf_anchor_time_array,
+            'anchor_time_sum': sum(rf_anchor_time_array)
         }
 
         with open(log_json, 'a', encoding='utf-8') as out_log_json:
@@ -240,7 +252,9 @@ def run_experiment(dataset_name):
         lgb_model = lgb.train(params=lgb_hyperparams,
                               train_set=lgb_train,
                               valid_sets=[lgb_valid],
-                              valid_names=['valid'], num_boost_round=1000, early_stopping_rounds=50, verbose_eval=False)
+                              valid_names=['valid'],
+                              num_boost_round=1000,
+                              callbacks=[lgb.callback.early_stopping(50, verbose=False)])
         lgb_fit_end = timer()
         if num_classes > 2:
             y_pred = np.argmax(lgb_model.predict(x_valid), axis=1)
@@ -265,6 +279,7 @@ def run_experiment(dataset_name):
         lgb_valid_covs = []
         lgb_valid_prcs = []
         lgb_anchor_rules = []
+        lgb_anchor_time_array = []
 
         mat_x_valid = x_valid.sample(anchor_n_instances, replace=True, random_state=SEED).to_numpy()
         for v_idx in range(mat_x_valid.shape[0]):
@@ -272,7 +287,10 @@ def run_experiment(dataset_name):
                 time_print('lgb anchor fold {} {}/{}'.format(f_idx+1, v_idx+1, mat_x_valid.shape[0]))
             # if you don't make a copy, lightgbm complains about memory issue
             v_cp = np.copy(mat_x_valid[v_idx, :].reshape(1, -1))
+            anchor_start = timer()
             ae = anchor_explain_single(v_cp, explainer, lgb_model)
+            anchor_end = timer()
+            lgb_anchor_time_array.append(anchor_end - anchor_start)
             fit_anchor = np.where(np.all(mat_x_valid[:, ae.features()] == mat_x_valid[v_idx][ae.features()], axis=1))[0]
             v_fac_cp = np.copy(mat_x_valid[fit_anchor])
             cov = fit_anchor.shape[0] / float(mat_x_valid.shape[0])
@@ -309,7 +327,9 @@ def run_experiment(dataset_name):
             'fit_excluding_optuna': lgb_fit_end - lgb_fit_start,
             'optuna_time': lgb_optuna_end - lgb_start,
             'fit_predict_time': lgb_fit_predict_end - lgb_optuna_end,
-            'anchor_time': lgb_anchor_end - lgb_anchor_start
+            'anchor_time': lgb_anchor_end - lgb_anchor_start,
+            'anchor_time_array': lgb_anchor_time_array,
+            'anchor_time_sum': sum(lgb_anchor_time_array)
         }
 
         with open(log_json, 'a', encoding='utf-8') as out_log_json:

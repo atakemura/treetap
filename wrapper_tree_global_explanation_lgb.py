@@ -89,7 +89,9 @@ def run_one_round(dataset_name,
         model = lgb.train(params=hyperparams,
                           train_set=lgb_train,
                           valid_sets=[lgb_valid],
-                          valid_names=['valid'], num_boost_round=1000, early_stopping_rounds=50, verbose_eval=False)
+                          valid_names=['valid'],
+                          num_boost_round=1000,
+                          callbacks=[lgb.callback.early_stopping(50, verbose=False)])
         lgb_fit_end = timer()
         model.save_model(model_path)
         with open(param_path, 'wb') as param_out:
@@ -145,7 +147,7 @@ def run_one_round(dataset_name,
         try:
             o = subprocess.run(['clingo', enc_v,
                                 tmp_class_file, tmp_pattern_file, '0', '--parallel-mode=8,split'
-                                ], capture_output=True, timeout=600)
+                                ], capture_output=True, timeout=1200)
             clingo_completed = True
         except subprocess.TimeoutExpired:
             o = None

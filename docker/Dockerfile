@@ -6,12 +6,9 @@ ENV PATH /opt/conda/bin:$PATH
 RUN apt --allow-releaseinfo-change update && \
     # python packages \
     conda update --all && \
-    conda install category_encoders && \
-    conda install -c conda-forge optuna && \
-    conda install -c potassco clingo && \
-    # conda install -c conda-forge lightgbm && \  # if conda installs < 3.3.2 use pip \
-    pip install lightgbm && \
-    conda install -c conda-forge shap
+    conda install -c potassco clingo
+
+RUN pip install category_encoders optuna lightgbm shap
 
 # install java
 RUN mkdir -p /usr/share/man/man1 && \
@@ -21,8 +18,9 @@ RUN mkdir -p /usr/share/man/man1 && \
 ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-amd64/
 
 # weka dependencies
-RUN apt install -y build-essential python3-dev && \
-    conda install -c conda-forge javabridge && \
+RUN apt install -y build-essential python3-dev
+
+RUN conda install -c conda-forge javabridge && \
     pip install python-weka-wrapper3 && \
     conda install liac-arff
 
@@ -34,6 +32,14 @@ RUN pip install anchor-exp
 
 RUN conda clean --all
 
+# pyxai with dependencies
+RUN echo 'deb http://deb.debian.org/debian bullseye-backports main' >> /etc/apt/sources.list && \
+    apt update && \
+    apt install -y openssh-server tzdata graphviz build-essential && \
+    apt install -y ffmpeg libsm6 libxext6 qt6-base-dev libxcb-cursor0 libxcb-xinerama0 nodejs && \
+    pip install pyxai
+
+# remote development
 RUN apt install -y openssh-server
 
 RUN ( \
